@@ -26,6 +26,31 @@ button{font:inherit;color:inherit;cursor:pointer}
 
 /* ---------- street ---------- */
 #street{position:fixed;inset:0;width:100%;height:100%;display:block;background:var(--sidewalk)}
+/* ---------- phones play sideways (landscape) ----------
+   body.land: a phone in a round, played landscape. body.rot: the phone is still held upright (or rotation is locked),
+   so #play is turned 90° to fill the screen sideways. --W/--H are the real window size, set by orient(). */
+#play{display:contents}
+body.rot #play{display:block;position:fixed;top:0;left:0;width:var(--H);height:var(--W);transform:translateX(var(--W)) rotate(90deg);transform-origin:0 0;overflow:hidden}
+body.land .signal{top:10px;left:10px;right:auto;width:max-content;max-width:none;padding:10px 14px;transform:scale(.72);transform-origin:top left}
+body.land .hud-left{top:10px;right:10px;transform:scale(.72);transform-origin:top right}
+body.land .exit{top:12px;bottom:auto;left:50%;right:auto;transform:translateX(-50%)}
+body.land #h-controls{left:14px;right:14px;bottom:12px;transform:none;width:auto;max-width:none}
+body.land #h-controls .keys{display:grid;grid-template-columns:repeat(3,50px) 1fr 104px;grid-template-rows:repeat(3,42px);gap:6px;width:100%}
+body.land #h-controls .ud{display:contents}
+body.land #h-controls .key{padding:0;justify-content:center;border-radius:12px;gap:4px}
+body.land #h-controls .key .cap{border:0;min-width:0;height:auto;padding:0;font-size:20px}
+body.land #h-controls .key .kl small,body.land #k-walk .kl{display:none}
+body.land #h-controls [data-k=up]{grid-area:1/2}body.land #h-controls [data-k=left]{grid-area:2/1}body.land #k-walk{grid-area:2/3}body.land #h-controls [data-k=down]{grid-area:3/2}
+body.land #k-run{grid-area:1/5/4/6;flex-direction:column;padding:0 10px!important}
+body.land #k-run .cap{font-size:14px}
+body.land #h-prompt{bottom:14px;font-size:18px;max-width:46%}
+body.land .intro{width:min(440px,calc(var(--H,100vw) - 32px));padding:16px 22px;gap:10px}
+body.land .intro h2{font-size:36px}
+body.land .intro p{font-size:16px}
+body.land .intro .k.big{min-width:72px;height:56px}
+body.land .card{width:min(520px,calc(var(--H,100vw) - 32px));bottom:auto;top:50%;transform:translate(-50%,-50%);padding:16px 20px;gap:10px}
+body.land .card h2{font-size:28px}
+.rotate-hint{color:var(--yellow)}
 #fade{position:fixed;inset:0;background:var(--bg);opacity:0;pointer-events:none;transition:opacity .28s ease;z-index:30}
 #fade.on{opacity:1}
 
@@ -341,6 +366,7 @@ h1{margin:0;font:900 clamp(44px,9vw,120px)/1 var(--display);letter-spacing:.02em
 </head>
 <body>
 <script src="../shared/nav.js?v=2" data-active="game"></script>
+<div id="play">
 <svg id="street" xmlns="http://www.w3.org/2000/svg" aria-label="Top-down view of the crosswalk at 15 Westminster Street" role="img">
   <defs>
     <pattern id="pave" width="64" height="64" patternUnits="userSpaceOnUse"><path d="M64 0V64M0 64H64" stroke="#75fbfd" stroke-opacity=".07" stroke-width="2" fill="none"/></pattern>
@@ -392,6 +418,7 @@ h1{margin:0;font:900 clamp(44px,9vw,120px)/1 var(--display);letter-spacing:.02em
   <button class="exit" id="h-exit" data-own-sound type="button" title="Exit (Esc)">✕ EXIT</button>
   <div class="intro quit" id="h-quit" hidden><h2>LEAVE THE GAME?</h2><p>Your progress won’t be&nbsp;saved.</p><div class="quit-btns"><button class="cta" id="q-stay" data-own-sound type="button">KEEP PLAYING</button><button class="cta quiet" id="q-exit" data-own-sound type="button">EXIT</button></div></div>
 </div>
+</div><!-- #play -->
 <div id="fade"></div>
 <div class="brand" id="brand">NOBODY TRUSTS GREEN</div>
 <button class="snd" id="snd" aria-pressed="true" title="Sound (M)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span id="snd-lbl">SOUND ON</span></button>
@@ -432,6 +459,7 @@ h1{margin:0;font:900 clamp(44px,9vw,120px)/1 var(--display);letter-spacing:.02em
     <div class="two-key"><span class="k big">SHIFT</span><b>RUN</b><span class="hint">Hold SHIFT with an arrow to&nbsp;run.</span></div>
     <div class="two-key"><span class="dodge-dot" aria-hidden="true"><i></i></span><b>DODGE</b><span class="hint">Don’t bump into people coming your&nbsp;way.</span></div>
   </div>
+  <p class="hint touch-only rotate-hint">↻ Turn your phone sideways to&nbsp;play.</p>
   <button class="cta glow" id="b-how" data-own-sound type="button">PRESS → TO PRACTICE</button>
 </section>
 
@@ -566,9 +594,19 @@ const STREET_SIGS=[];
 })();
 
 let vb={x:0,y:0,w:W,h:1024};
+const PHONE=matchMedia('(pointer:coarse)').matches&&Math.min(screen.width,screen.height)<=600;
+function orient(){
+  const game=document.body.classList.contains('ingame');
+  const rot=PHONE&&game&&innerHeight>innerWidth,land=PHONE&&game;
+  document.body.classList.toggle('rot',rot);document.body.classList.toggle('land',land);
+  document.documentElement.style.setProperty('--W',innerWidth+'px');document.documentElement.style.setProperty('--H',innerHeight+'px');
+}
 function fit(){
   if(!innerWidth||!innerHeight)return; // no size yet (hidden or zero-height window)
-  const a=innerWidth/innerHeight,needW=1160,needH=820;
+  orient();
+  const rot=document.body.classList.contains('rot'),land=document.body.classList.contains('land');
+  const vw=rot?innerHeight:innerWidth,vh=rot?innerWidth:innerHeight;
+  const a=vw/vh,needW=1160,needH=land?640:820;                    // sideways on a phone: zoom in a little
   const w=Math.max(needW,needH*a),h=w/a;
   vb={x:720-w/2,y:PY-h/2,w,h};
   svg.setAttribute('viewBox',`${vb.x} ${vb.y} ${w} ${h}`);
@@ -765,7 +803,7 @@ function show(name){
   S.screen=name;
   for(const s of screens)$('s-'+s).hidden=s!==name;
   const game=name==='play'||name==='card';
-  $('hud').hidden=!game;$('brand').hidden=game;document.body.classList.toggle('ingame',game);document.body.classList.toggle('ntg-nav-off',game);SFX.ambience(game);if(!game)SFX.clearCars();
+  $('hud').hidden=!game;$('brand').hidden=game;document.body.classList.toggle('ingame',game);orient();document.body.classList.toggle('ntg-nav-off',game);SFX.ambience(game);if(!game)SFX.clearCars();
   if(!game)stopLoop();
   if(!game){/* buttons are not auto-focused, so they only light up on hover or Tab; → works on every screen */if(document.activeElement&&document.activeElement!==document.body)document.activeElement.blur();$('s-'+name).scrollTop=0;}
 }

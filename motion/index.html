@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Different Rhythms</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Doto:wght@700;900&display=swap">
+<style>
+:root{
+  --bg:#111931; --frame:#0e1129; --surface:#1b2547; --lime:#bafd50; --muted:#8a93b2; --white:#ffffff;
+  --display:'Doto','DM Mono',ui-monospace,Menlo,monospace;
+  --ui:'DM Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--white);font-family:var(--ui)}
+/* the motion is a 1440×1024 Figma frame (exported at 1.5×, 2160×1536), shown whole, smaller, centred */
+.stage{position:fixed;inset:var(--ntg-nav-h,0px) 0 0 0;display:grid;place-items:center;--pad:clamp(20px,6vh,64px);padding:var(--pad) max(120px,5vw)}
+@media (max-width:900px){.stage{padding:var(--pad) 16px calc(var(--pad) + 64px)}}
+.stage video{display:block;width:auto;height:auto;max-width:min(1100px,100%);max-height:calc(100dvh - var(--ntg-nav-h,0px) - 2*var(--pad));aspect-ratio:1440/1024;
+  background:var(--frame);border-radius:16px;box-shadow:0 0 0 1px rgba(117,251,253,.15)}
+.brand{position:fixed;top:calc(26px + env(safe-area-inset-top,0px));left:max(24px,env(safe-area-inset-left,0px));font:700 20px var(--display);color:var(--lime);letter-spacing:.02em;z-index:2}
+.has-ntg-nav .brand{display:none} /* the shared nav replaces it */
+.controls{position:fixed;z-index:2;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;gap:8px}
+.toggle{display:flex;align-items:center;gap:8px;
+  font:500 12px var(--ui);letter-spacing:.1em;color:var(--muted);background:color-mix(in srgb,var(--bg) 80%,transparent);border:1px solid var(--surface);border-radius:20px;padding:8px 14px;cursor:pointer}
+.toggle:hover{color:var(--white);border-color:var(--muted)}
+/* while the browser keeps the video muted, the sound button glows so people know there is sound */
+.toggle.ask{color:var(--lime);border-color:var(--lime);box-shadow:0 0 14px rgba(186,253,80,.35)}
+/* next section: an arrow to the right of the video; a pill under it on narrow screens */
+.next{position:fixed;z-index:2;right:max(24px,env(safe-area-inset-right,0px));top:calc(50% + var(--ntg-nav-h,0px)/2);transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--lime);text-decoration:none;font:500 12px var(--ui);letter-spacing:.12em}
+.next .arrow{width:64px;height:64px;border-radius:50%;border:2px solid var(--lime);display:grid;place-items:center;font-size:26px;transition:box-shadow .25s ease,transform .25s ease}
+.next small{font-size:10px;color:var(--muted);letter-spacing:.14em}
+.next:hover .arrow{transform:translateX(4px);box-shadow:0 0 0 8px rgba(186,253,80,.12),0 0 24px rgba(186,253,80,.45)}
+@media (max-width:900px){
+  .next{top:auto;right:auto;left:50%;bottom:calc(64px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);flex-direction:row;gap:10px;border:2px solid var(--lime);border-radius:30px;padding:10px 18px}
+  .next .arrow{width:auto;height:auto;border:0;font-size:16px;order:1}
+  .next small{order:-1}
+}
+</style>
+</head>
+<body>
+<script src="../shared/nav.js?v=2" data-active="motion"></script>
+<div class="brand">NOBODY TRUSTS GREEN</div>
+<div class="stage">
+  <video id="motion" src="crossing-different-rhythms.mp4" poster="poster.jpg" muted loop playsinline preload="auto"
+         aria-label="Animation: pedestrians crossing in two periods, a crowded class change and a quiet period"></video>
+</div>
+<a class="next" href="../index.html#quiz"><span class="arrow" aria-hidden="true">→</span><small>NEXT</small>QUIZ</a>
+<div class="controls">
+  <button class="toggle" id="sound" type="button">SOUND OFF</button>
+  <button class="toggle" id="toggle" type="button">PAUSE</button>
+</div>
+<script>
+(() => {
+const v=document.getElementById('motion'),b=document.getElementById('toggle'),snd=document.getElementById('sound');
+// line icons drawn in the button's text colour (same speaker as the game's sound button)
+const SPK='<path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/>';
+const ICON={
+  on:SPK+'<path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
+  off:SPK+'<path d="M16.5 9.5l5 5M21.5 9.5l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  pause:'<rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/>',
+  play:'<path d="M7 5l12 7-12 7z" fill="currentColor"/>'};
+const set=(btn,icon,text)=>{btn.innerHTML=`<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">${ICON[icon]}</svg>${text}`;};
+const label=()=>{v.paused?set(b,'play','PLAY'):set(b,'pause','PAUSE');};
+const soundLabel=()=>{v.muted?set(snd,'off','SOUND OFF'):set(snd,'on','SOUND ON');snd.classList.toggle('ask',v.muted);};
+// The video has a sound track. Browsers only autoplay muted video unless the visitor has interacted,
+// so try with sound first, fall back to muted, and turn the sound on at the first click or tap anywhere.
+async function start(){
+  v.muted=false;
+  try{await v.play();}
+  catch(e){v.muted=true;try{await v.play();}catch(e2){}}
+  soundLabel();
+}
+if(!matchMedia('(prefers-reduced-motion: reduce)').matches)start();else{v.muted=false;soundLabel();}
+v.addEventListener('play',label);v.addEventListener('pause',label);v.addEventListener('volumechange',soundLabel);label();
+b.addEventListener('click',e=>{e.stopPropagation();v.paused?v.play():v.pause();});
+snd.addEventListener('click',e=>{e.stopPropagation();v.muted=!v.muted;if(!v.muted&&v.paused)v.play();});
+// the NEXT arrow sits in the middle of the empty band to the right of the video (wide screens only)
+const nx=document.querySelector('.next');
+function placeNext(){
+  if(innerWidth<=900){nx.style.right='';return;}
+  const gap=innerWidth-v.getBoundingClientRect().right;
+  nx.style.right=Math.max(16,(gap-nx.offsetWidth)/2)+'px';
+}
+addEventListener('resize',placeNext);v.addEventListener('loadedmetadata',placeNext);if(window.ResizeObserver)new ResizeObserver(placeNext).observe(v);placeNext();
+addEventListener('pointerdown',function first(e){if(e.target.closest('.ntg-nav,.controls'))return;removeEventListener('pointerdown',first);if(v.muted){v.muted=false;if(v.paused)v.play();}});
+})();
+</script>
+</body>
+</html>

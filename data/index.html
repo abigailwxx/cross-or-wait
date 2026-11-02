@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Everyone's Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Doto:wght@700;900&display=swap">
+<style>
+/* DATA: pick the quiz or the game, then see one simple view of everyone's results (read live from the group's Google Sheet).
+   #quiz and #game in the address open a view directly, so the browser's back button works. */
+:root{
+  --bg:#111931; --card:#1B2547; --line:#2A3566;
+  --cyan:#75FBFD; --lime:#BAFD50; --yellow:#FFFF75; --pink:#EA3380; --white:#FFFFFF; --dim:#8A93B2;
+  --display:"Doto","DM Mono",ui-monospace,monospace;
+  --mono:"DM Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--white);margin:0}
+body{font-family:var(--mono);font-size:15px;line-height:1.5;padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
+[hidden]{display:none!important}
+main{max-width:1000px;margin:0 auto;padding:calc(var(--ntg-nav-h,0px) + 48px) 0 96px}
+.view{display:flex;flex-direction:column;gap:28px}
+.eyebrow{font-size:12px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin:0}
+h1{font:900 clamp(40px,7vw,80px)/1.05 var(--display);color:var(--lime);margin:0}
+.status{margin:0;font-size:13px;color:var(--yellow)}
+
+/* choose */
+.pick{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:700px){.pick{grid-template-columns:1fr}}
+.choice{--c:var(--cyan);display:flex;flex-direction:column;gap:14px;padding:32px 30px;border-radius:24px;background:var(--card);border:2px solid var(--line);color:var(--white);text-decoration:none;transition:border-color .2s,box-shadow .25s,transform .2s}
+.choice:hover{border-color:var(--c);box-shadow:0 0 0 8px color-mix(in srgb,var(--c) 10%,transparent),0 0 28px color-mix(in srgb,var(--c) 35%,transparent);transform:translateY(-2px)}
+.choice .eyebrow{color:var(--c)}
+.choice h2{margin:0;font:900 clamp(30px,4vw,44px)/1.05 var(--display);color:var(--c)}
+.choice p{margin:0;color:var(--dim)}
+.choice .arrow{margin-top:auto;align-self:flex-end;width:52px;height:52px;border-radius:50%;border:2px solid var(--c);color:var(--c);display:grid;place-items:center;font-size:22px}
+.choice.game{--c:var(--lime)}
+
+/* one result view */
+.back{align-self:flex-start;background:none;border:2px solid var(--line);color:var(--white);font:500 13px var(--mono);letter-spacing:.08em;border-radius:30px;padding:10px 18px;cursor:pointer;text-decoration:none}
+.back:hover{border-color:var(--dim)}
+.big{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.big b{font:900 clamp(64px,10vw,120px)/1 var(--display);color:var(--lime)}
+.big span{font-size:16px;color:var(--dim);letter-spacing:.06em}
+.headline{margin:0;font:700 clamp(22px,3vw,34px)/1.25 var(--display);text-wrap:balance}
+.card{background:var(--card);border-radius:24px;padding:28px 30px;display:flex;flex-direction:column;gap:20px}
+.card h3{margin:0;font-size:13px;letter-spacing:.12em;font-weight:500;color:var(--dim)}
+.rows{display:grid;gap:22px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px;align-items:center}
+.row .name{display:flex;align-items:center;gap:12px;font:700 18px var(--display)}
+.row .num{font-size:15px;color:var(--dim)}
+.bar{grid-column:1/-1;height:14px;border-radius:8px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:8px;transition:width .6s ease}
+.you{font:500 11px var(--mono);letter-spacing:.1em;color:var(--bg);background:var(--white);border-radius:10px;padding:2px 8px}
+.empty{color:var(--dim);margin:0}
+.next{display:flex;flex-wrap:wrap;gap:12px}
+.cta{display:inline-block;text-decoration:none;font:500 14px var(--mono);letter-spacing:.06em;border-radius:30px;padding:14px 24px;background:var(--lime);color:var(--bg)}
+.cta.line{background:none;border:2px solid var(--line);color:var(--white)}
+/* quiz type markers (same as the quiz) */
+.glyph{--d:28px;width:var(--d);height:var(--d);border-radius:50%;display:inline-grid;place-items:center;flex:none}
+.glyph .core{width:80%;height:80%;border-radius:50%;background:var(--fill)}
+.glyph.go{background:var(--pink)}
+.glyph.go .core{width:66%;height:66%;box-shadow:0 0 0 2px var(--bg)}
+</style>
+</head>
+<body>
+<script src="../shared/nav.js?v=2" data-active="data"></script>
+<main>
+  <!-- 1. choose -->
+  <section class="view" id="v-pick">
+    <p class="eyebrow">15 Westminster Street, Providence</p>
+    <h1>THE DATA.</h1>
+    <div class="pick">
+      <a class="choice" href="#quiz"><span class="eyebrow">Quiz</span><h2>WHAT KIND OF PEDESTRIAN?</h2><p id="n-quiz">Loading…</p><span class="arrow" aria-hidden="true">→</span></a>
+      <a class="choice game" href="#game"><span class="eyebrow">Game</span><h2>WOULD YOU CROSS?</h2><p id="n-game">Loading…</p><span class="arrow" aria-hidden="true">→</span></a>
+    </div>
+  </section>
+
+  <!-- 2a. quiz -->
+  <section class="view" id="v-quiz" hidden>
+    <a class="back" href="#">← BACK</a>
+    <p class="eyebrow">Quiz results</p>
+    <div class="big"><b id="q-n">0</b><span id="q-n-lbl">PEOPLE TOOK THE QUIZ</span></div>
+    <p class="headline" id="q-head"></p>
+    <p class="status" id="q-status" hidden></p>
+    <div class="card"><h3>WHAT PEOPLE GOT</h3><div id="q-rows"></div></div>
+    <div class="next"><a class="cta" href="#game">SEE GAME RESULTS →</a><a class="cta line" href="../index.html#quiz">TAKE THE QUIZ</a></div>
+  </section>
+
+  <!-- 2b. game -->
+  <section class="view" id="v-game" hidden>
+    <a class="back" href="#">← BACK</a>
+    <p class="eyebrow">Game results</p>
+    <div class="big"><b id="g-n">0</b><span id="g-n-lbl">PEOPLE PLAYED</span></div>
+    <p class="headline" id="g-head"></p>
+    <p class="status" id="g-status" hidden></p>
+    <div class="card"><h3>DID THEY MAKE IT TO CLASS?</h3><div id="g-made"></div></div>
+    <div class="card"><h3>CROSSINGS STARTED ON DON’T WALK</h3><div id="g-rush"></div></div>
+    <div class="next"><a class="cta" href="#quiz">SEE QUIZ RESULTS →</a><a class="cta line" href="../game/index.html">PLAY THE GAME</a></div>
+  </section>
+</main>
+<script>
+// the group's shared results Sheet ("NTG results" Apps Script): ?section=quiz and ?section=game
+const RESULTS_URL='https://script.google.com/macros/s/AKfycbzFCEnsNlBP_1-BfGGPJGAlYpDSDRCL_7OG0-JPMaeeIUDuLjDb2zk1zXEKDsfKaog/exec';
+(() => {
+const $=id=>document.getElementById(id);
+const stored=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};   // marks YOU when this browser took part
+const pct=(a,n)=>n?Math.round(a/n*100):0;
+const people=n=>n===1?'PERSON':'PEOPLE';
+async function load(section){
+  const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),10000);
+  try{const j=await fetch(RESULTS_URL+'?section='+section+'&t='+Date.now(),{signal:ctl.signal}).then(r=>r.json());return j.results||[];}
+  finally{clearTimeout(t);}
+}
+const D={quiz:null,game:null,err:{}};
+const row=(name,k,n,col,you)=>`<div class="row"><span class="name">${name}${you?'<span class="you">YOU</span>':''}</span><span class="num">${k} · ${pct(k,n)}%</span><div class="bar"><i style="width:${pct(k,n)}%;background:${col}"></i></div></div>`;
+const empty=what=>`<p class="empty">No results yet. ${what} to be the&nbsp;first.</p>`;
+
+/* ---------- quiz: how many people got each type ---------- */
+const TYPES={
+  believer:{name:'THE BELIEVER',fill:'var(--white)',go:false},
+  checker:{name:'THE CHECKER',fill:'var(--cyan)',go:false},
+  masher:{name:'THE MASHER',fill:'var(--white)',go:true},
+  gap:{name:'THE GAP-FINDER',fill:'var(--cyan)',go:true}
+};
+const glyph=t=>`<span class="glyph${t.go?' go':''}" style="--fill:${t.fill}"><span class="core"></span></span>`;
+function renderQuiz(){
+  const rows=D.quiz||[],n=rows.length,me=rows.find(r=>r.id===stored('wfi-id'));
+  $('q-n').textContent=n;$('q-n-lbl').textContent=people(n)+' TOOK THE QUIZ';
+  $('q-status').hidden=!D.err.quiz;$('q-status').textContent='Couldn’t load the quiz results right now.';
+  if(!n){$('q-head').textContent='';$('q-rows').innerHTML=empty('Take the quiz');return;}
+  const count=k=>rows.filter(r=>r.type===k).length,keys=Object.keys(TYPES).sort((a,b)=>count(b)-count(a));
+  $('q-head').innerHTML=`Most people are <span style="color:var(--lime)">${TYPES[keys[0]].name}</span>.`;
+  $('q-rows').innerHTML='<div class="rows">'+keys.map((k,i)=>row(glyph(TYPES[k])+TYPES[k].name,count(k),n,i===0?'var(--lime)':'var(--dim)',me&&me.type===k)).join('')+'</div>';
+}
+
+/* ---------- game: made it or late, and how often people crossed on DON'T WALK in each round ---------- */
+function renderGame(){
+  const rows=D.game||[],n=rows.length,me=rows.find(r=>r.id===stored('ntg-player'));
+  $('g-n').textContent=n;$('g-n-lbl').textContent=people(n)+' PLAYED';
+  $('g-status').hidden=!D.err.game;$('g-status').textContent='Couldn’t load the game results right now.';
+  if(!n){$('g-head').textContent='';$('g-made').innerHTML=$('g-rush').innerHTML=empty('Play the game');return;}
+  const ok=rows.filter(r=>r.made).length;
+  $('g-made').innerHTML='<div class="rows">'+row('MADE IT',ok,n,'var(--lime)',me&&me.made)+row('LATE',n-ok,n,'var(--pink)',me&&!me.made)+'</div>';
+  // r1/r2 = the signal each crossing was started on (WALK / COUNT / DONT), calm round vs late round
+  const share=key=>{const all=rows.flatMap(r=>(r[key]||[]).filter(Boolean));return {k:all.filter(p=>p==='DONT').length,t:all.length};};
+  const a=share('r1'),b=share('r2'),pa=pct(a.k,a.t),pb=pct(b.k,b.t);
+  $('g-rush').innerHTML='<div class="rows">'+row('NO RUSH',a.k,a.t,'var(--dim)')+row('LATE FOR CLASS',b.k,b.t,'var(--pink)')+'</div>';
+  $('g-head').innerHTML=pb>pa?'Running late, people crossed on <span style="color:var(--pink)">DON’T WALK</span> more&nbsp;often.'
+    :pb<pa?'Running late didn’t make people cross on DON’T WALK&nbsp;more.':'The clock didn’t change how often people crossed on DON’T&nbsp;WALK.';
+}
+
+function renderPick(){
+  const t=(d,e,w)=>d?`${d.length} ${people(d.length).toLowerCase()} ${w}`:e?'Couldn’t load right now':'Loading…';
+  $('n-quiz').textContent=t(D.quiz,D.err.quiz,'took it');$('n-game').textContent=t(D.game,D.err.game,'played');
+}
+async function refresh(section){
+  try{const r=await load(section);D[section]=section==='quiz'?r.filter(x=>TYPES[x.type]):r.filter(x=>typeof x.made==='boolean');D.err[section]=false;}
+  catch(e){D.err[section]=!D[section];}
+  renderPick();section==='quiz'?renderQuiz():renderGame();
+}
+
+/* ---------- views ---------- */
+function route(){
+  const v=location.hash.slice(1),view=v==='quiz'||v==='game'?v:'pick';
+  for(const k of ['pick','quiz','game'])$('v-'+k).hidden=k!==view;
+  scrollTo(0,0);
+}
+addEventListener('hashchange',route);addEventListener('popstate',route);
+for(const b of document.querySelectorAll('.back'))b.addEventListener('click',e=>{e.preventDefault();history.pushState(null,'',location.pathname);route();});
+route();renderPick();renderQuiz();renderGame();
+const all=()=>{refresh('quiz');refresh('game');};
+all();setInterval(all,20000);
+})();
+</script>
+</body>
+</html>

@@ -151,6 +151,15 @@ h2{font-size:clamp(28px,4.4vw,52px);color:var(--white)}
 .sp-foot .legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:8px;vertical-align:-1px;box-shadow:0 0 8px currentColor}
 .sp-foot .push{--size:clamp(96px,10vw,140px);--accent:var(--lime)}
 .sp-foot .push .face{font-size:calc(var(--size)*.13)}
+@media (hover:none){.hov-word{font-size:0}.hov-word::after{content:'Tap';font-size:12px}}
+/* phones: the dots get the top of the screen (see AY() in the script), the text sits below them, ENTER bottom right */
+@media (max-width:760px){
+  .sp-foot{gap:14px;background:linear-gradient(to bottom,transparent,rgba(11,17,36,.85) 40px);padding-top:40px}
+  .sp-foot h2{font-size:30px}
+  .sp-foot .sub{font-size:12px;line-height:1.6}
+  .sp-foot .legend{gap:14px;font-size:11px}
+  .sp-foot .push{--size:92px;margin-left:auto}
+}
 .sp-skip{position:absolute;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:3;background:none;border:0;color:var(--dim);font-size:11px;letter-spacing:.12em;cursor:pointer}
 #splash.landed .sp-skip,#splash.bursting .sp-skip{display:none}
 .tip{position:absolute;z-index:4;width:260px;background:rgba(11,17,36,.92);border:1px solid var(--c);border-radius:10px;padding:12px 14px;pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .15s ease,transform .15s ease}
@@ -190,7 +199,7 @@ svg.focus .dust,svg.focus .web{opacity:.05}
   <div class="sp-foot">
     <div>
       <h2>DO WE TRUST<br>THE SIGNAL?</h2>
-      <p class="sub" style="margin-top:14px">Not really. Even on green or WALK, drivers and pedestrians still check for themselves. Hover a dot to see what they told us.</p>
+      <p class="sub" style="margin-top:14px">Not really. Even on green or WALK, drivers and pedestrians still check for themselves. <span class="hov-word">Hover</span> a dot to see what they told&nbsp;us.</p>
       <div class="legend"><span><i style="background:var(--yellow)"></i>PEDESTRIANS</span><span><i style="background:var(--cyan)"></i>DRIVERS</span><span><i style="background:var(--pink)"></i>SIGNALS</span></div>
     </div>
     <button class="push" id="enterBtn" data-own-sound type="button" aria-label="Enter the site"><span class="ring"></span><span class="face">ENTER</span></button>
@@ -449,7 +458,11 @@ nodes.forEach(n=>{const g=mk("g",{class:"node nd",tabindex:0,role:"button","aria
   const shape=n.kind==="car"?mk("rect",{rx:14,ry:14,fill:COL[n.kind],filter:"url(#glow)"}):mk("circle",{fill:COL[n.kind],filter:"url(#glow)"});g.append(hit,shape);gNd.appendChild(g);n.el=g;n.shape=shape;n.size=n.kind==="light"?38:28;
   g.addEventListener("pointerenter",()=>{focus(n);SND.hover(n.kind);});g.addEventListener("pointerleave",()=>focus(null));g.addEventListener("focus",()=>focus(n));g.addEventListener("blur",()=>focus(null));
   g.addEventListener("click",e=>{e.stopPropagation();focus(cur===n?null:n);});});
-let W=0,Hh=0;function size(){W=SP.clientWidth;Hh=SP.clientHeight;svgW.setAttribute("viewBox",`0 0 ${W} ${Hh}`);
+let W=0,Hh=0,band=[0,1];
+// y for a 0–1 position: the whole splash on wide screens; on phones only the band above the text block
+const AY=ty=>band[0]+(ty-.1)/.85*(band[1]-band[0]);
+function size(){W=SP.clientWidth;Hh=SP.clientHeight;
+  band=W<=760?[24,Hh-document.querySelector(".sp-foot").offsetHeight-12]:[.1*Hh,.95*Hh];svgW.setAttribute("viewBox",`0 0 ${W} ${Hh}`);
   const chars=[...word.querySelectorAll(".ch")];const box=SP.getBoundingClientRect();
   const centers=chars.map(c=>{const r=c.getBoundingClientRect();return [r.left-box.left+r.width/2,r.top-box.top+r.height/2];});
   nodes.forEach((n,i)=>{[n.sx,n.sy]=centers[i%centers.length];});dust.forEach((d,i)=>{const c=centers[i%centers.length];d.sx=c[0]+((i*13)%40-20);d.sy=c[1]+((i*29)%60-30);});}
@@ -489,10 +502,10 @@ const SND=(()=>{
 })();
 let phase="word",t0=0,raf=0,cur=null;const ease=t=>1-Math.pow(1-t,3);
 function place(p,now){const k=ease(Math.min(1,Math.max(0,p)));const fl=phase==="landed"&&!reduce;
-  nodes.forEach((n,i)=>{const ox=fl?Math.sin(now/1600+i)*5:0,oy=fl?Math.cos(now/1900+i*1.7)*4:0;n.x=n.sx+(n.tx*W-n.sx)*k+ox;n.y=n.sy+(n.ty*Hh-n.sy)*k+oy;const s=16+(n.size-16)*k;
+  nodes.forEach((n,i)=>{const ox=fl?Math.sin(now/1600+i)*5:0,oy=fl?Math.cos(now/1900+i*1.7)*4:0;n.x=n.sx+(n.tx*W-n.sx)*k+ox;n.y=n.sy+(AY(n.ty)-n.sy)*k+oy;const s=16+(n.size-16)*k;
     if(n.kind==="car"){n.shape.setAttribute("x",n.x-s/2);n.shape.setAttribute("y",n.y-s/2);n.shape.setAttribute("width",s);n.shape.setAttribute("height",s);n.shape.setAttribute("rx",s/2);}else{n.shape.setAttribute("cx",n.x);n.shape.setAttribute("cy",n.y);n.shape.setAttribute("r",s/2);}
     n.el.firstChild.setAttribute("cx",n.x);n.el.firstChild.setAttribute("cy",n.y);n.el.style.opacity=phase==="word"?0:"";});
-  dust.forEach((d,i)=>{const ox=fl?Math.sin(now/2100+i)*6:0;d.x=d.sx+(d.tx*W-d.sx)*k+ox;d.y=d.sy+(d.ty*Hh-d.sy)*k;d.el.setAttribute("cx",d.x);d.el.setAttribute("cy",d.y);d.el.setAttribute("opacity",phase==="word"?0:(.9-.4*k));});
+  dust.forEach((d,i)=>{const ox=fl?Math.sin(now/2100+i)*6:0;d.x=d.sx+(d.tx*W-d.sx)*k+ox;d.y=d.sy+(AY(d.ty)-d.sy)*k;d.el.setAttribute("cx",d.x);d.el.setAttribute("cy",d.y);d.el.setAttribute("opacity",phase==="word"?0:(.9-.4*k));});
   const lo=Math.min(1,Math.max(0,(p-.55)/.45));
   webEls.forEach(([l,a,b])=>{l.setAttribute("x1",a.x);l.setAttribute("y1",a.y);l.setAttribute("x2",b.x);l.setAttribute("y2",b.y);l.setAttribute("opacity",.18*lo);});
   lnEls.forEach(({l,a,b})=>{l.setAttribute("x1",a.x);l.setAttribute("y1",a.y);l.setAttribute("x2",b.x);l.setAttribute("y2",b.y);if(!l.classList.contains("rel"))l.setAttribute("opacity",.85*lo);else l.setAttribute("opacity",1);});

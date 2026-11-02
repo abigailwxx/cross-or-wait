@@ -51,6 +51,16 @@ body.land .intro .k.big{min-width:72px;height:56px}
 body.land .card{width:min(520px,calc(var(--H,100vw) - 32px));bottom:auto;top:50%;transform:translate(-50%,-50%);padding:16px 20px;gap:10px}
 body.land .card h2{font-size:28px}
 .rotate-hint{color:var(--yellow)}
+/* HOW TO PLAY on touch screens: three short rows instead of the keyboard keys */
+.how-touch{display:none;flex-direction:column;gap:18px;width:min(340px,100%);text-align:left}
+.how-touch > div{display:flex;align-items:center;gap:18px}
+.how-touch p{margin:0;display:flex;flex-direction:column;gap:4px;font-size:15px;color:var(--muted)}
+.how-touch b{font:500 18px var(--ui);letter-spacing:.08em;color:var(--white)}
+.how-touch .dodge-dot{width:64px;min-width:64px;height:64px;flex:none}
+.mini-stick{width:64px;height:64px;flex:none;border-radius:50%;border:2px solid var(--cyan);background:var(--surface);display:grid;place-items:center}
+.mini-stick i{width:28px;height:28px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px color-mix(in srgb,var(--cyan) 60%,transparent)}
+.mini-run{width:64px;height:64px;flex:none;border-radius:50%;border:2px solid var(--cyan);background:var(--surface);display:grid;place-items:center;font:500 14px var(--ui);letter-spacing:.08em;color:var(--white)}
+@media (hover:none) and (pointer:coarse){.how-touch{display:flex}#s-how .two-keys{display:none}}
 #fade{position:fixed;inset:0;background:var(--bg);opacity:0;pointer-events:none;transition:opacity .28s ease;z-index:30}
 #fade.on{opacity:1}
 
@@ -128,7 +138,7 @@ body.land .card h2{font-size:28px}
 .arrows{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:44px 44px;gap:8px}
 .arrows .k{min-width:0!important;height:auto!important;padding:0!important;border-radius:10px!important;font-size:20px!important}
 .arrows .k:nth-child(1){grid-area:1/2}.arrows .k:nth-child(2){grid-area:2/1}.arrows .k:nth-child(3){grid-area:2/2}.arrows .k:nth-child(4){grid-area:2/3}
-@media (max-width:760px){.two-keys .plus{display:none}}
+@media (max-width:760px){.two-keys span.plus{display:none}}
 .dodge-dot{width:96px;height:96px;display:grid;place-items:center}
 .dodge-dot i{width:44px;height:44px;border-radius:50%;background:var(--yellow);border:5px solid var(--bg);box-shadow:0 0 0 3px var(--yellow)}
 .two-keys.three{gap:32px clamp(28px,5vw,88px);align-items:flex-start}
@@ -173,6 +183,10 @@ body.land .card h2{font-size:28px}
   .stick{display:block}
   #h-controls .keys{align-items:center}
   body.land #h-controls .stick{grid-area:1/1/4/4;align-self:end;width:132px;height:132px}
+  #k-run .cap{display:none}
+  #h-controls #k-run{width:104px;height:104px;border-radius:50%;padding:0!important;align-self:end;justify-self:end}
+  #k-run .kl{align-items:center}
+  #k-run .kl b{font-size:18px}
 }
 .intro h2{margin:0;font:900 clamp(44px,6.4vw,80px)/1 var(--display);color:var(--lime);letter-spacing:.04em}
 .intro p{margin:0;font:700 clamp(18px,2.2vw,26px)/1.35 var(--display);text-wrap:balance}
@@ -472,8 +486,13 @@ h1{margin:0;font:900 clamp(44px,9vw,120px)/1 var(--display);letter-spacing:.02em
     <div class="two-key"><span class="k big">SHIFT</span><b>RUN</b><span class="hint"><span class="mouse-only">Hold SHIFT with an arrow to&nbsp;run.</span><span class="touch-only">Hold RUN while you&nbsp;move.</span></span></div>
     <div class="two-key"><span class="dodge-dot" aria-hidden="true"><i></i></span><b>DODGE</b><span class="hint">Don’t bump into people coming your&nbsp;way.</span></div>
   </div>
+  <div class="how-touch">
+    <div><span class="mini-stick" aria-hidden="true"><i></i></span><p><b>MOVE</b>Drag the joystick.</p></div>
+    <div><span class="mini-run" aria-hidden="true">RUN</span><p><b>RUN</b>Hold RUN while you&nbsp;move.</p></div>
+    <div><span class="dodge-dot" aria-hidden="true"><i></i></span><p><b>DODGE</b>Don’t bump into&nbsp;people.</p></div>
+  </div>
   <p class="hint touch-only rotate-hint">↻ Turn your phone sideways to&nbsp;play.</p>
-  <button class="cta glow" id="b-how" data-own-sound type="button">PRESS → TO PRACTICE</button>
+  <button class="cta glow" id="b-how" data-own-sound type="button"><span class="mouse-only">PRESS → TO PRACTICE</span><span class="touch-only">START PRACTICE</span></button>
 </section>
 
 <section class="screen" id="s-data" hidden>

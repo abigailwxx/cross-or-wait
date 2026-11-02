@@ -17,7 +17,8 @@
 html,body{margin:0;height:100%;background:var(--bg);color:var(--white);font-family:var(--ui)}
 /* the motion is a 1440×1024 Figma frame (exported at 1.5×, 2160×1536), shown whole, smaller, centred */
 .stage{position:fixed;inset:var(--ntg-nav-h,0px) 0 0 0;display:grid;place-items:center;--pad:clamp(20px,6vh,64px);padding:var(--pad) max(120px,5vw)}
-@media (max-width:900px){.stage{padding:var(--pad) 16px calc(var(--pad) + 64px)}}
+/* narrow screens: room under the video for NEXT and the controls, which placeNext() sets right below it */
+@media (max-width:900px){.stage{padding:var(--pad) 16px calc(var(--pad) + 128px)}.stage video{max-height:calc(100dvh - var(--ntg-nav-h,0px) - 2*var(--pad) - 128px)}}
 .stage video{display:block;width:auto;height:auto;max-width:min(1100px,100%);max-height:calc(100dvh - var(--ntg-nav-h,0px) - 2*var(--pad));aspect-ratio:1440/1024;
   background:var(--frame);border-radius:16px;box-shadow:0 0 0 1px rgba(117,251,253,.15)}
 .brand{position:fixed;top:calc(26px + env(safe-area-inset-top,0px));left:max(24px,env(safe-area-inset-left,0px));font:700 20px var(--display);color:var(--lime);letter-spacing:.02em;z-index:2}
@@ -34,7 +35,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--white);font-fami
 .next small{font-size:10px;color:var(--muted);letter-spacing:.14em}
 .next:hover .arrow{transform:translateX(4px);box-shadow:0 0 0 8px rgba(186,253,80,.12),0 0 24px rgba(186,253,80,.45)}
 @media (max-width:900px){
-  .next{top:auto;right:auto;left:50%;bottom:calc(64px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);flex-direction:row;gap:10px;border:2px solid var(--lime);border-radius:30px;padding:10px 18px}
+  .next{right:auto;left:50%;transform:translateX(-50%);flex-direction:row;gap:10px;border:2px solid var(--lime);border-radius:30px;padding:10px 18px}
+  .controls{right:auto;bottom:auto;left:50%;transform:translateX(-50%);width:max-content}
+  .toggle{white-space:nowrap}
   .next .arrow{width:auto;height:auto;border:0;font-size:16px;order:1}
   .next small{order:-1}
 }
@@ -68,6 +71,7 @@ const soundLabel=()=>{v.muted?set(snd,'off','SOUND OFF'):set(snd,'on','SOUND ON'
 // The video has a sound track. Browsers only autoplay muted video unless the visitor has interacted,
 // so try with sound first, fall back to muted, and turn the sound on at the first click or tap anywhere.
 async function start(){
+  v.currentTime=0;                                   // always from the first frame
   v.muted=false;
   try{await v.play();}
   catch(e){v.muted=true;try{await v.play();}catch(e2){}}
@@ -79,12 +83,18 @@ b.addEventListener('click',e=>{e.stopPropagation();v.paused?v.play():v.pause();}
 snd.addEventListener('click',e=>{e.stopPropagation();v.muted=!v.muted;if(!v.muted&&v.paused)v.play();});
 // the NEXT arrow sits in the middle of the empty band to the right of the video (wide screens only)
 const nx=document.querySelector('.next');
+const ctl=document.querySelector('.controls');
 function placeNext(){
-  if(innerWidth<=900){nx.style.right='';return;}
+  if(innerWidth<=900){                               // stacked right under the video: NEXT, then sound / pause
+    const r=v.getBoundingClientRect();nx.style.right='';
+    nx.style.top=(r.bottom+20)+'px';ctl.style.top=(r.bottom+20+nx.offsetHeight+14)+'px';return;}
+  nx.style.top='';ctl.style.top='';
   const gap=innerWidth-v.getBoundingClientRect().right;
   nx.style.right=Math.max(16,(gap-nx.offsetWidth)/2)+'px';
 }
 addEventListener('resize',placeNext);v.addEventListener('loadedmetadata',placeNext);if(window.ResizeObserver)new ResizeObserver(placeNext).observe(v);placeNext();
+// coming back with the browser's back button restores the page mid-video: start it over
+addEventListener('pageshow',e=>{if(e.persisted){v.currentTime=0;start();}});
 addEventListener('pointerdown',function first(e){if(e.target.closest('.ntg-nav,.controls'))return;removeEventListener('pointerdown',first);if(v.muted){v.muted=false;if(v.paused)v.play();}});
 })();
 </script>

@@ -36,7 +36,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--white);font-fami
 .next:hover .arrow{transform:translateX(4px);box-shadow:0 0 0 8px rgba(186,253,80,.12),0 0 24px rgba(186,253,80,.45)}
 @media (max-width:900px){
   .next{right:auto;left:50%;transform:translateX(-50%);flex-direction:row;gap:10px;border:2px solid var(--lime);border-radius:30px;padding:10px 18px}
-  .controls{right:auto;bottom:auto;left:50%;transform:translateX(-50%);width:max-content}
+  .controls{right:auto;left:50%;transform:translateX(-50%);width:max-content}
   .toggle{white-space:nowrap}
   .next .arrow{width:auto;height:auto;border:0;font-size:16px;order:1}
   .next small{order:-1}
@@ -85,10 +85,10 @@ snd.addEventListener('click',e=>{e.stopPropagation();v.muted=!v.muted;if(!v.mute
 const nx=document.querySelector('.next');
 const ctl=document.querySelector('.controls');
 function placeNext(){
-  if(innerWidth<=900){                               // stacked right under the video: NEXT, then sound / pause
-    const r=v.getBoundingClientRect();nx.style.right='';
-    nx.style.top=(r.bottom+20)+'px';ctl.style.top=(r.bottom+20+nx.offsetHeight+14)+'px';return;}
-  nx.style.top='';ctl.style.top='';
+  if(innerWidth<=900){                               // sound / pause sit at the bottom; NEXT in the middle of the space between them and the video
+    const r=v.getBoundingClientRect(),c=ctl.getBoundingClientRect();nx.style.right='';
+    nx.style.top=Math.max(r.bottom+16,(r.bottom+c.top-nx.offsetHeight)/2)+'px';return;}
+  nx.style.top='';
   const gap=innerWidth-v.getBoundingClientRect().right;
   nx.style.right=Math.max(16,(gap-nx.offsetWidth)/2)+'px';
 }

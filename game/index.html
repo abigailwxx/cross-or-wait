@@ -163,6 +163,17 @@ body.land .card h2{font-size:28px}
 #street.shake{animation:shake .45s ease-out}
 #hud.no-keys #h-controls{display:none}
 @media (hover:none){#hud.no-keys #h-controls{display:flex}}
+/* phones and tablets: a joystick replaces the four arrow buttons (desktop keeps the keys) */
+.stick{display:none;position:relative;width:132px;height:132px;border-radius:50%;touch-action:none;user-select:none;-webkit-user-select:none;
+  background:radial-gradient(circle,color-mix(in srgb,var(--cyan) 10%,var(--surface)) 0 60%,var(--surface) 61%);border:2px solid var(--cyan);box-shadow:0 0 18px color-mix(in srgb,var(--cyan) 25%,transparent)}
+.stick i{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:var(--cyan);box-shadow:0 0 16px color-mix(in srgb,var(--cyan) 60%,transparent);transition:transform .12s ease}
+.stick.on{border-color:var(--lime)} .stick.on i{background:var(--lime);transition:none;box-shadow:0 0 18px color-mix(in srgb,var(--lime) 70%,transparent)}
+@media (hover:none) and (pointer:coarse){
+  #h-controls .key[data-k],#k-walk{display:none!important}
+  .stick{display:block}
+  #h-controls .keys{align-items:center}
+  body.land #h-controls .stick{grid-area:1/1/4/4;align-self:end;width:132px;height:132px}
+}
 .intro h2{margin:0;font:900 clamp(44px,6.4vw,80px)/1 var(--display);color:var(--lime);letter-spacing:.04em}
 .intro p{margin:0;font:700 clamp(18px,2.2vw,26px)/1.35 var(--display);text-wrap:balance}
 .intro .k{display:grid;place-items:center;border:3px solid var(--cyan);color:var(--cyan);background:var(--surface);font-family:var(--ui);font-weight:500;animation:keypulse 1.2s ease-in-out infinite}
@@ -174,8 +185,9 @@ body.land .card h2{font-size:28px}
 .snd[aria-pressed=false]{opacity:.6;text-decoration:line-through}
 @media (max-width:760px){body.ingame .snd{display:none}}
 /* leave mid-game: EXIT (or Esc) freezes the street and asks first */
-.exit{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));font:500 12px var(--ui);letter-spacing:.1em;color:var(--muted);background:color-mix(in srgb,var(--bg) 85%,transparent);border:1px solid var(--surface);border-radius:20px;padding:8px 14px;cursor:pointer}
-.exit:hover{color:var(--white);border-color:var(--muted)}
+.exit{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px;font:500 14px var(--ui);letter-spacing:.12em;color:var(--white);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1.5px solid color-mix(in srgb,var(--white) 55%,transparent);border-radius:24px;padding:9px 18px 9px 10px;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.35);transition:border-color .2s,box-shadow .2s}
+.exit i{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--white);color:var(--bg);font-style:normal;font-size:13px;font-weight:700}
+.exit:hover{border-color:var(--white);box-shadow:0 0 0 6px color-mix(in srgb,var(--white) 10%,transparent),0 2px 12px rgba(0,0,0,.35)}
 @media (max-width:760px){.exit{bottom:auto;right:auto;left:max(16px,env(safe-area-inset-left,0px));top:calc(190px + env(safe-area-inset-top,0px))}}
 .intro.quit{border-color:var(--cyan)}
 .intro.quit h2{font-size:clamp(30px,4vw,48px);color:var(--white)}
@@ -404,6 +416,7 @@ h1{margin:0;font:900 clamp(44px,9vw,120px)/1 var(--display);letter-spacing:.02em
   <div class="intro" id="h-intro" hidden><h2 id="h-intro-title">PRACTICE</h2><p id="h-intro-text">Press → to start.</p><span class="k big" id="h-intro-key" aria-hidden="true">→</span><button class="cta glow" id="h-coach-go" data-own-sound type="button" hidden>START CROSSING 1 →</button></div>
   <div class="controls" id="h-controls">
     <div class="keys">
+      <div class="stick" id="h-stick" aria-label="Joystick: drag to move"><i></i></div>
       <button data-own-sound class="key sm" data-k="left" aria-label="Step back: hold the left arrow"><span class="cap">←</span></button>
       <button data-own-sound class="key" id="k-walk" aria-label="Walk: hold the right arrow; let go to stop"><span class="cap">→</span><span class="kl"><b>WALK</b><small>HOLD</small></span></button>
       <div class="ud"><button data-own-sound class="key sm" data-k="up" aria-label="Step up: hold the up arrow"><span class="cap">↑</span></button><button data-own-sound class="key sm" data-k="down" aria-label="Step down: hold the down arrow"><span class="cap">↓</span></button></div>
@@ -415,7 +428,7 @@ h1{margin:0;font:900 clamp(44px,9vw,120px)/1 var(--display);letter-spacing:.02em
     <h2 id="c-head">CROSSING 1 DONE.</h2>
     <button class="cta glow" id="c-next" data-own-sound type="button">NEXT CROSSING →</button>
   </div>
-  <button class="exit" id="h-exit" data-own-sound type="button" title="Exit (Esc)">✕ EXIT</button>
+  <button class="exit" id="h-exit" data-own-sound type="button" title="Exit (Esc)"><i aria-hidden="true">✕</i>EXIT</button>
   <div class="intro quit" id="h-quit" hidden><h2>LEAVE THE GAME?</h2><p>Your progress won’t be&nbsp;saved.</p><div class="quit-btns"><button class="cta" id="q-stay" data-own-sound type="button">KEEP PLAYING</button><button class="cta quiet" id="q-exit" data-own-sound type="button">EXIT</button></div></div>
 </div>
 </div><!-- #play -->
@@ -454,9 +467,9 @@ h1{margin:0;font:900 clamp(44px,9vw,120px)/1 var(--display);letter-spacing:.02em
 <section class="screen" id="s-how" hidden>
   <h1 class="how-title">HOW TO PLAY.</h1>
   <div class="two-keys three">
-    <div class="two-key"><span class="arrows" aria-hidden="true"><span class="k big">↑</span><span class="k big">←</span><span class="k big">↓</span><span class="k big">→</span></span><b>MOVE</b><span class="hint">Hold an arrow to move. Let go to&nbsp;stop.</span></div>
+    <div class="two-key"><span class="arrows" aria-hidden="true"><span class="k big">↑</span><span class="k big">←</span><span class="k big">↓</span><span class="k big">→</span></span><b>MOVE</b><span class="hint"><span class="mouse-only">Hold an arrow to move. Let go to&nbsp;stop.</span><span class="touch-only">Drag the joystick to move. Let go to&nbsp;stop.</span></span></div>
     <span class="plus" aria-hidden="true">+</span>
-    <div class="two-key"><span class="k big">SHIFT</span><b>RUN</b><span class="hint">Hold SHIFT with an arrow to&nbsp;run.</span></div>
+    <div class="two-key"><span class="k big">SHIFT</span><b>RUN</b><span class="hint"><span class="mouse-only">Hold SHIFT with an arrow to&nbsp;run.</span><span class="touch-only">Hold RUN while you&nbsp;move.</span></span></div>
     <div class="two-key"><span class="dodge-dot" aria-hidden="true"><i></i></span><b>DODGE</b><span class="hint">Don’t bump into people coming your&nbsp;way.</span></div>
   </div>
   <p class="hint touch-only rotate-hint">↻ Turn your phone sideways to&nbsp;play.</p>
@@ -595,6 +608,8 @@ const STREET_SIGS=[];
 
 let vb={x:0,y:0,w:W,h:1024};
 const PHONE=matchMedia('(pointer:coarse)').matches&&Math.min(screen.width,screen.height)<=600;
+const STICK=matchMedia('(hover:none) and (pointer:coarse)').matches;   // touch: joystick instead of arrow keys
+const T=(keys,touch)=>STICK?touch:keys;
 function orient(){
   const game=document.body.classList.contains('ingame');
   const rot=PHONE&&game&&innerHeight>innerWidth,land=PHONE&&game;
@@ -833,7 +848,7 @@ function startRound(act,i,retry){
   $('h-hit').hidden=true;
   const intro=R.practice||(i===0&&!retry),col=act===2?'var(--pink)':'var(--lime)';$('h-intro').hidden=!intro;
   if(intro){R.state='intro';const t=$('h-intro-title');t.textContent=R.practice?'PRACTICE':'ROUND '+act;t.style.color=col;$('h-intro').style.borderColor=col;
-    $('h-intro-text').hidden=!(R.practice||act===2);$('h-intro-text').textContent=R.practice?'Press → to start.':'Class starts in 0:30.';$('h-intro-key').hidden=false;}
+    $('h-intro-text').hidden=!(R.practice||act===2);$('h-intro-text').textContent=R.practice?T('Press → to start.','Tap to start.'):'Class starts in 0:30.';$('h-intro-key').hidden=STICK;}
   $('h-prog').hidden=R.practice;$('h-dots').hidden=act!==1;$('h-route').hidden=act!==2;$('h-clock-box').hidden=act!==2;
   $('h-prog-text').textContent=`ROUND ${act} · CROSSING ${i+1} OF 3`;$('h-prog').classList.toggle('late',act===2);
   $('h-dots').hidden=R.practice;$('h-route').hidden=true;
@@ -1030,12 +1045,12 @@ function exitGame(){quitFrom=null;$('h-quit').hidden=true;R=null;resetRun();fade
 
 /* ---------- practice: about 15 seconds, nothing recorded ---------- */
 function coach(t){const p=$('h-prompt');p.innerHTML=t;p.hidden=!t;}
-function beginPractice(){$('h-intro').hidden=true;$('h-controls').hidden=false;R.state='curb';keysUI();last=performance.now();if(R.practice)coach('Hold → to walk.');}
+function beginPractice(){$('h-intro').hidden=true;$('h-controls').hidden=false;R.state='curb';keysUI();last=performance.now();if(R.practice)coach(T('Hold → to walk.','Push the stick right to walk.'));}
 function practiceTick(){
   if(R.step==='walk'&&moving()&&!$('h-prompt').hidden&&R.px<R0+RW*0.25)coach('');
-  if(R.step==='walk'&&R.px>R0+RW*0.25){R.step='stop';coach('Let go of → to stop and look.');}
-  else if(R.step==='stop'&&R.state==='stopped'){R.step='dodge';R.dodger=spawnOncoming(R.py,240);coach('Someone’s coming. Use ↑ or ↓ to step&nbsp;aside.');}
-  else if(R.step==='dodge'&&R.dodger.x<R.px-60){R.step='run';coach('Now hold → + SHIFT to run to FINISH.');}
+  if(R.step==='walk'&&R.px>R0+RW*0.25){R.step='stop';coach(T('Let go of → to stop and look.','Let go of the stick to stop and look.'));}
+  else if(R.step==='stop'&&R.state==='stopped'){R.step='dodge';R.dodger=spawnOncoming(R.py,240);coach(T('Someone’s coming. Use ↑ or ↓ to step&nbsp;aside.','Someone’s coming. Push up or down to step&nbsp;aside.'));}
+  else if(R.step==='dodge'&&R.dodger.x<R.px-60){R.step='run';coach(T('Now hold → + SHIFT to run to FINISH.','Now hold RUN and push right to FINISH.'));}
 }
 
 /* ---------- reaching FINISH ---------- */
@@ -1092,7 +1107,7 @@ function realData(){
   OBS.forEach((o,i)=>{const y=62+i*16;drawMark(s,o.d>0?30:402,o.d>0?402:30,y,o.p,o.a,{k:.45});});
   $('p-obs').replaceChildren(s);
   const dw=count(o=>o.p==='DONT'),dwp=count(o=>o.p==='DONT'&&o.a==='paused'),cd=count(o=>o.p==='COUNT'),cdp=count(o=>o.p==='COUNT'&&o.a==='paused'),wk=count(o=>o.p==='WALK'),wkp=count(o=>o.p==='WALK'&&o.a==='paused');
-  $('obs-text').innerHTML=`We recorded <b>12 people crossing</b> at the 15 Westminster Street crosswalk${OBS_WHEN?' '+OBS_WHEN:' <span class="todo">[session date and time to be added]</span>'}. `+
+  $('obs-text').innerHTML=`We recorded <b>12 people crossing</b> at the 15 Westminster Street crosswalk${OBS_WHEN?' '+OBS_WHEN:''}. `+
     `<b>${dw}</b> started on DON’T WALK (${dwp} of them stopped partway), <b>${cd}</b> started on the COUNTDOWN (${cdp} stopped), and <b>${wk}</b> started on WALK (${wkp} stopped).`;
   $('obs-note').textContent='People who waited at the curb were not counted in this sample.';
   show('data');
@@ -1207,6 +1222,23 @@ function bindKey(b,k){
   b.addEventListener('contextmenu',e=>e.preventDefault());
 }
 bindKey($('k-walk'),'right');bindKey($('k-run'),'run');
+// joystick: drag the knob; past 35% of the radius in a direction holds that arrow (diagonals hold two)
+const stick=$('h-stick'),knob=stick.firstElementChild;let stickId=null;
+function stickSet(x,y){
+  const want={right:x>.35,left:x<-.35,down:y>.35,up:y<-.35};
+  for(let pass=0;pass<2;pass++)for(const d of DIRS)if(!R||R.keys[d]!==want[d])input(d,want[d]);   // pass 2: if the first push only closed the start card, it starts moving right away
+}
+function stickMove(e){
+  const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,rad=stick.offsetWidth/2;
+  let sx=e.clientX-cx,sy=e.clientY-cy;
+  let x=sx,y=sy;if(document.body.classList.contains('rot')){x=sy;y=-sx;}   // the play area is turned 90°: screen → stick coordinates
+  const d=Math.hypot(x,y),k=d>rad?rad/d:1;x*=k;y*=k;
+  knob.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;stickSet(x/rad,y/rad);
+}
+stick.addEventListener('pointerdown',e=>{e.preventDefault();stickId=e.pointerId;try{stick.setPointerCapture(stickId);}catch(err){}stick.classList.add('on');stickMove(e);});
+stick.addEventListener('pointermove',e=>{if(e.pointerId===stickId)stickMove(e);});
+for(const ev of ['pointerup','pointercancel','lostpointercapture'])stick.addEventListener(ev,e=>{if(e.pointerId!==stickId)return;stickId=null;stick.classList.remove('on');knob.style.transform='';stickSet(0,0);});
+stick.addEventListener('contextmenu',e=>e.preventDefault());
 for(const b of document.querySelectorAll('.key[data-k]'))bindKey(b,b.dataset.k);
 for(const id of ['b-start','b-overview','b-how','b-all','b-data','c-next','h-coach-go','hit-btn'])$(id).addEventListener('click',advance);
 $('h-intro').addEventListener('click',e=>{if(R&&S.screen==='play'&&R.state==='intro'&&e.target.id!=='h-coach-go')beginPractice();});

@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Would You Cross?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Doto:wght@700;900&display=swap">
+<style>
+/* Layout: a full-bleed top-down crosswalk for play; one centred idea per screen between rounds (15W visual system).
+   Line language: colour = the signal when you started; mark = what you did (solid line, ‖ pause, dot = waited). */
+:root{
+  --bg:#111931; --surface:#1b2547; --navy:#00017a; --sidewalk:#213d52;
+  --cyan:#75fbfd; --pink:#ea3380; --lime:#bafd50; --yellow:#ffff75; --white:#ffffff; --muted:#8a93b2;
+  --walk:var(--lime); --count:var(--yellow); --dont:var(--pink);
+  --display:'Doto','DM Mono',ui-monospace,Menlo,monospace;
+  --ui:'DM Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--white);font-family:var(--ui);font-size:16px;overflow:hidden;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--cyan);outline-offset:4px}
+
+/* ---------- street ---------- */
+#street{position:fixed;inset:0;width:100%;height:100%;display:block;background:var(--sidewalk)}
+#fade{position:fixed;inset:0;background:var(--bg);opacity:0;pointer-events:none;transition:opacity .28s ease;z-index:30}
+#fade.on{opacity:1}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:10}
+#hud > *{pointer-events:auto}
+.panelbg{background:color-mix(in srgb,var(--bg) 90%,transparent);border-radius:18px}
+.label{font:500 13px var(--ui);letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+
+.hud-left{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;align-items:flex-end;gap:10px;pointer-events:none}
+.progress{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:12px 20px}
+@media (max-width:760px){
+  .signal{left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));width:auto}
+  .hud-left{top:calc(190px + env(safe-area-inset-top,0px))}
+}
+.progress .label{color:var(--white)}
+.dots{display:flex;gap:16px}
+.dots i{width:16px;height:16px;border-radius:50%;background:var(--surface);display:block;box-sizing:border-box}
+.dots i{background:transparent;box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--muted) 70%,transparent)}
+.dots i.done{background:var(--acc);box-shadow:none}
+.dots i.now{background:transparent;box-shadow:inset 0 0 0 3px var(--acc),0 0 12px color-mix(in srgb,var(--acc) 60%,transparent)}
+#h-prog{--acc:var(--lime)} #h-prog.late{--acc:var(--pink)}
+.route{display:flex;align-items:center}
+.route i,.track i{display:grid;place-items:center;box-sizing:border-box;flex:none;border-radius:50%;font-style:normal}
+.route i{width:22px;height:22px;border:2px solid var(--muted)}
+.route i.end{width:12px;height:12px;border:0;background:var(--cyan)}
+.route i.end.studio{background:var(--lime)}
+.route i.now{border-color:var(--cyan);box-shadow:0 0 0 4px color-mix(in srgb,var(--cyan) 25%,transparent)}
+.route s{display:block;width:clamp(20px,4vw,56px);height:2px;background:var(--surface)}
+/* recorded choices: fill = signal colour; paused = dark centre; waited = ring */
+[data-a]{border:0!important;background:var(--c)!important}
+[data-a=paused]{box-shadow:inset 0 0 0 6px var(--c),inset 0 0 0 30px var(--bg)!important}
+[data-a=wait]{background:transparent!important;border:3px solid var(--c)!important}
+
+.signal{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));width:max-content;max-width:calc(100vw - 32px);padding:16px 22px;border-radius:18px;background:var(--surface);border:2px solid color-mix(in srgb,var(--sig) 60%,transparent);display:flex;flex-direction:column;gap:10px}
+.signal[data-phase=WALK]{--sig:var(--walk)} .signal[data-phase=COUNT]{--sig:var(--count)} .signal[data-phase=DONT]{--sig:var(--dont)}
+.sig-main{display:flex;align-items:center;gap:16px;color:var(--sig)}
+.sig-icon{width:clamp(40px,4.6vw,60px);height:clamp(52px,6vw,78px);flex:none;display:grid;place-items:center}
+.sig-icon svg{width:100%;height:100%;fill:currentColor}
+.signal[data-phase=COUNT] .sig-icon{animation:blink 1s steps(1) infinite}
+.sig-main b{font:900 clamp(24px,3.2vw,40px)/1 var(--display);letter-spacing:.02em}
+.sig-count{display:flex;align-items:baseline;gap:8px;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--white) 15%,transparent)}
+.sig-count strong{font:900 clamp(26px,3vw,38px)/1 var(--display);color:var(--sig);font-variant-numeric:tabular-nums;margin-left:auto}
+.sig-count em{font-style:normal;color:var(--sig)}
+
+.clock{padding:14px 20px;display:flex;flex-direction:column;gap:6px}
+.clock b{font:900 clamp(40px,5.6vw,68px)/1 var(--display);color:var(--yellow);font-variant-numeric:tabular-nums}
+.clock b.hit{color:var(--pink)}
+
+.controls{position:absolute;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:14px;width:max-content;max-width:calc(100vw - 32px)}
+.keys{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.key{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;display:flex;align-items:center;gap:12px;font:500 20px/1 var(--ui);letter-spacing:.06em;color:var(--white);background:var(--surface);border:2px solid var(--cyan);border-radius:16px;padding:16px 22px;transition:opacity .2s,border-color .2s,transform .08s}
+.key .cap{display:grid;place-items:center;min-width:44px;height:36px;padding:0 10px;border-radius:8px;border:2px solid var(--cyan);color:var(--cyan);font-size:16px}
+.key .kl{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.key .kl b{font:500 18px var(--ui);letter-spacing:.08em}
+.key small{font:500 11px var(--ui);color:var(--muted);letter-spacing:.1em}
+.key:active{transform:translateY(2px)}
+.key.dim{opacity:.35}
+.key.lit{border-color:var(--lime);background:color-mix(in srgb,var(--lime) 14%,var(--surface))} .key.lit .cap{border-color:var(--lime);color:var(--lime)}
+.key.sm{padding:10px}
+.ud{display:flex;flex-direction:column;gap:6px}
+.ud .key.sm{padding:4px 8px}.ud .key.sm .cap{height:28px}
+/* phones: a d-pad (↑ ← → ↓) with RUN beside it */
+@media (max-width:760px){
+  #h-controls .keys{display:grid;grid-template-columns:repeat(3,54px) auto;grid-template-rows:repeat(3,46px);gap:6px}
+  #h-controls .ud{display:contents}
+  #h-controls .key{padding:0;justify-content:center;border-radius:12px}
+  #h-controls .key .cap{border:0;min-width:0;height:auto;padding:0;font-size:20px}
+  #h-controls .key .kl small,#k-walk .kl{display:none}
+  #h-controls [data-k=up]{grid-area:1/2}#h-controls [data-k=left]{grid-area:2/1}#k-walk{grid-area:2/3}#h-controls [data-k=down]{grid-area:3/2}
+  #k-run{grid-area:1/4/4/5;margin-left:14px;padding:0 18px!important;flex-direction:column;gap:6px}
+  #k-run .cap{font-size:14px}
+  #h-prompt{bottom:calc(196px + env(safe-area-inset-bottom,0px))}
+}
+.arrows{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:44px 44px;gap:8px}
+.arrows .k{min-width:0!important;height:auto!important;padding:0!important;border-radius:10px!important;font-size:20px!important}
+.arrows .k:nth-child(1){grid-area:1/2}.arrows .k:nth-child(2){grid-area:2/1}.arrows .k:nth-child(3){grid-area:2/2}.arrows .k:nth-child(4){grid-area:2/3}
+@media (max-width:760px){.two-keys .plus{display:none}}
+.dodge-dot{width:96px;height:96px;display:grid;place-items:center}
+.dodge-dot i{width:44px;height:44px;border-radius:50%;background:var(--yellow);border:5px solid var(--bg);box-shadow:0 0 0 3px var(--yellow)}
+.two-keys.three{gap:32px clamp(28px,5vw,88px);align-items:flex-start}
+.two-keys .plus{height:96px;display:grid;place-items:center;font:900 clamp(32px,3.4vw,44px) var(--display);color:var(--cyan);margin-inline:calc(clamp(28px,5vw,88px) * -0.55)}
+#s-how .commit{gap:22px}
+.two-key .hint{max-width:24ch;text-wrap:balance}
+.car .brake{opacity:.12;transition:opacity .08s}.car.braking .brake{opacity:1}
+.car.flash .beam{animation:hl .12s steps(1) 6}
+@keyframes hl{50%{opacity:0}}
+.npc{transition:opacity .4s}
+
+/* result card (between Act 1 rounds) */
+.card{position:absolute;left:50%;bottom:calc(32px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(660px,calc(100vw - 32px));padding:24px 24px 26px;border-radius:24px;background:color-mix(in srgb,var(--bg) 94%,transparent);border:2px solid color-mix(in srgb,var(--cyan) 30%,transparent);display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.card h2{margin:0;font:900 clamp(28px,4.2vw,46px)/1.05 var(--display);letter-spacing:.02em;text-wrap:balance}
+.card p{margin:0;font-size:16px;line-height:1.45;text-wrap:balance}
+.obs{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;max-width:100%}
+.obs i{width:22px;height:22px;border-radius:50%;display:block;opacity:.25;box-sizing:border-box}
+.obs i.on{opacity:1}
+
+.coach{pointer-events:auto;width:min(440px,calc(50vw - 32px));padding:16px 22px;border-radius:18px;background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--lime);display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left}
+@media (max-width:760px){.coach{width:calc(100vw - 32px)}}
+.coach small{font:500 11px var(--ui);letter-spacing:.12em;color:var(--lime)}
+.coach p{margin:0;font:700 clamp(18px,2.4vw,26px)/1.3 var(--display);color:var(--white);text-wrap:balance}
+.coach .cta{margin-top:6px}
+/* practice: centred intro card (waits for →) and frameless step prompts */
+.intro{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(500px,calc(100vw - 32px));padding:30px 28px;border-radius:22px;background:color-mix(in srgb,var(--bg) 94%,transparent);border:2px solid var(--lime);display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;box-shadow:0 0 0 100vmax color-mix(in srgb,var(--bg) 45%,transparent)}
+.intro .eyebrow{color:var(--lime)}
+.intro.hit{border-color:var(--pink)}
+.intro.hit h2{color:var(--pink);font-size:clamp(32px,4vw,52px);white-space:nowrap}
+#hit-btn{--accent:var(--pink);background:var(--pink);color:var(--white)}
+@keyframes shake{20%{transform:translateX(-10px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+#street.shake{animation:shake .45s ease-out}
+#hud.no-keys #h-controls{display:none}
+@media (hover:none){#hud.no-keys #h-controls{display:flex}}
+.intro h2{margin:0;font:900 clamp(44px,6.4vw,80px)/1 var(--display);color:var(--lime);letter-spacing:.04em}
+.intro p{margin:0;font:700 clamp(18px,2.2vw,26px)/1.35 var(--display);text-wrap:balance}
+.intro .k{display:grid;place-items:center;border:3px solid var(--cyan);color:var(--cyan);background:var(--surface);font-family:var(--ui);font-weight:500;animation:keypulse 1.2s ease-in-out infinite}
+@keyframes keypulse{50%{box-shadow:0 0 26px color-mix(in srgb,var(--cyan) 60%,transparent)}}
+.prompt{position:absolute;left:50%;bottom:calc(132px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:max-content;max-width:calc(100vw - 32px);margin:0;text-align:center;font:900 clamp(22px,3vw,40px)/1.2 var(--display);color:var(--white);letter-spacing:.02em;text-shadow:0 0 18px var(--bg),0 0 6px var(--bg),0 2px 0 var(--bg);pointer-events:none!important;text-wrap:balance}
+
+/* sound toggle */
+.snd{position:fixed;z-index:27;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;font:500 12px var(--ui);letter-spacing:.1em;color:var(--muted);background:color-mix(in srgb,var(--bg) 85%,transparent);border:1px solid var(--surface);border-radius:20px;padding:8px 14px}
+.snd[aria-pressed=false]{opacity:.6;text-decoration:line-through}
+@media (max-width:760px){body.ingame .snd{display:none}}
+/* leave mid-game: EXIT (or Esc) freezes the street and asks first */
+.exit{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));font:500 12px var(--ui);letter-spacing:.1em;color:var(--muted);background:color-mix(in srgb,var(--bg) 85%,transparent);border:1px solid var(--surface);border-radius:20px;padding:8px 14px;cursor:pointer}
+.exit:hover{color:var(--white);border-color:var(--muted)}
+@media (max-width:760px){.exit{bottom:auto;right:auto;left:max(16px,env(safe-area-inset-left,0px));top:calc(190px + env(safe-area-inset-top,0px))}}
+.intro.quit{border-color:var(--cyan)}
+.intro.quit h2{font-size:clamp(30px,4vw,48px);color:var(--white)}
+.quit-btns{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+.cta.quiet{--accent:var(--white);background:transparent;color:var(--white);border:2px solid var(--muted)}
+
+/* ---------- screens ---------- */
+.screen{position:fixed;inset:0;z-index:20;background:var(--bg);overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:safe center;gap:28px;text-align:center;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:calc(84px + env(safe-area-inset-top,0px)) calc(32px + env(safe-area-inset-bottom,0px))}
+.brand{position:fixed;top:calc(26px + env(safe-area-inset-top,0px));left:max(24px,env(safe-area-inset-left,0px));font:700 20px var(--display);color:var(--lime);letter-spacing:.02em;z-index:25}
+/* on the combined site the shared nav (../shared/nav.js) sits on top: screens start below it, it replaces the brand line, and it hides during play */
+.screen{top:var(--ntg-nav-h,0px)}
+.has-ntg-nav .brand{display:none}
+.eyebrow{font:500 13px var(--ui);letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+h1{margin:0;font:900 clamp(44px,9vw,120px)/1 var(--display);letter-spacing:.02em;text-wrap:balance}
+.sub{margin:0;font-size:17px;line-height:1.5;max-width:46ch;text-wrap:balance}
+.cta{font:500 15px var(--ui);letter-spacing:.06em;background:var(--lime);color:var(--bg);border:0;border-radius:30px;padding:16px 28px}
+.cta{--accent:var(--lime);transition:box-shadow .25s ease,transform .12s ease,filter .12s ease}
+.cta:hover{box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 14%,transparent),0 0 0 16px color-mix(in srgb,var(--accent) 7%,transparent),0 0 28px color-mix(in srgb,var(--accent) 55%,transparent)}
+.cta:active,.cta.pressed{transform:scale(.94);filter:brightness(.88);box-shadow:none}
+.cta.ghost{--accent:var(--bg);background:transparent;color:var(--bg);border:2px solid var(--bg)}
+.hint{font-size:14px;color:var(--muted)}
+#s-landing{gap:24px}
+#s-landing .place{color:var(--cyan);font-size:14px;letter-spacing:.14em}
+#s-landing h1{margin-top:-8px}
+.commit{display:flex;flex-direction:column;align-items:center;gap:8px}
+.commit p{margin:0}
+.scope{font:500 16px var(--ui);letter-spacing:.06em;color:var(--white)}
+.touch-only{display:none}
+@media (hover:none){.touch-only{display:inline}.mouse-only{display:none}}
+
+/* start button: the push button from the quiz section (same hover halo, press and beep) */
+.push{--size:clamp(200px,30vw,320px);--accent:var(--lime);
+  position:relative;width:var(--size);height:var(--size);max-width:100%;border-radius:50%;
+  background:var(--surface);border:2px solid var(--cyan);cursor:pointer;padding:0;
+  transition:box-shadow .25s ease,opacity .25s ease,transform .1s ease}
+.push::before{content:"";position:absolute;inset:11%;border-radius:50%;background:var(--navy);border:3px solid var(--muted)}
+.push .ring{position:absolute;inset:11%;border-radius:50%;border:calc(var(--size)*.045) solid var(--accent);opacity:0;transform:scale(.92);transition:opacity .15s ease,transform .2s ease}
+.push .face{position:absolute;inset:20%;border-radius:50%;background:var(--accent);display:grid;place-items:center;
+  font-family:var(--display);font-weight:700;color:var(--bg);font-size:calc(var(--size)*.1);line-height:1.05;padding:6%;
+  transition:transform .12s ease,box-shadow .25s ease,filter .12s ease}
+.push:hover,.push:focus-visible{outline:none;box-shadow:0 0 0 calc(var(--size)*.08) color-mix(in srgb,var(--accent) 14%,transparent),0 0 0 calc(var(--size)*.16) color-mix(in srgb,var(--accent) 7%,transparent)}
+.push:hover .face,.push:focus-visible .face{box-shadow:0 0 calc(var(--size)*.2) color-mix(in srgb,var(--accent) 70%,transparent)}
+.push:active .face,.push.pressed .face{transform:scale(.84);filter:brightness(.88)}
+.push:active .ring,.push.pressed .ring{opacity:1;transform:scale(1)}
+.push.pressed{box-shadow:none}
+
+/* how to play */
+.moves{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 40px;align-items:start;width:min(980px,100%)}
+.move{display:flex;flex-direction:column;align-items:center;gap:14px;min-width:0}
+.move .caps{display:flex;align-items:center;gap:8px;justify-content:center;min-height:56px}
+.move .k{display:grid;place-items:center;min-width:48px;height:44px;padding:0 14px;border-radius:10px;border:2px solid var(--cyan);color:var(--cyan);background:var(--surface);font:500 16px var(--ui)}
+.move .then{font:500 13px var(--ui);color:var(--muted);letter-spacing:.06em}
+.move b{font:500 15px var(--ui);letter-spacing:.08em}
+.move p{margin:0;font-size:15px;line-height:1.45;max-width:26ch;text-wrap:balance;min-height:4.35em}
+.move svg{width:100%;max-width:220px;height:22px}
+.window{margin:0;max-width:60ch;font-size:15px;line-height:1.5;text-wrap:balance;padding:14px 20px;border-radius:14px;background:var(--surface)}
+@media (max-width:720px){.moves{grid-template-columns:1fr}.move p{min-height:0}}
+
+/* how to play (two keys) */
+#s-how{gap:32px}
+.corner{position:absolute;top:calc(30px + env(safe-area-inset-top,0px));right:max(24px,env(safe-area-inset-right,0px))}
+.how-title{font-size:clamp(40px,6vw,80px)}
+.two-keys{display:flex;flex-wrap:wrap;justify-content:center;gap:32px clamp(48px,14vw,240px)}
+.two-key{display:flex;flex-direction:column;align-items:center;gap:18px}
+.two-key b{font:500 clamp(18px,2vw,24px) var(--ui);letter-spacing:.06em}
+.two-key .k{display:grid;place-items:center;border:3px solid var(--cyan);color:var(--cyan);background:var(--surface);font-family:var(--ui);font-weight:500}
+.k.big{min-width:96px;height:96px;padding:0 28px;border-radius:16px;font-size:clamp(24px,2.4vw,32px);border-width:3px}
+
+#s-data{justify-content:flex-start}
+
+/* game overview: two rounds of the same three crossings */
+#s-overview{gap:32px}
+.rounds{display:flex;align-items:stretch;justify-content:center;gap:20px;width:min(1000px,100%)}
+.round{flex:1;min-width:0;background:var(--surface);border:2px solid var(--c);border-radius:20px;padding:28px;display:flex;flex-direction:column;align-items:flex-start;gap:12px;text-align:left}
+.round .eyebrow{color:var(--c)}
+.round h2{margin:0;font:900 clamp(26px,3.2vw,40px)/1.05 var(--display);color:var(--c);letter-spacing:.02em}
+.round p{margin:0;font:500 16px var(--ui);letter-spacing:.04em;line-height:1.45}
+.xings{list-style:none;margin:8px 0 0;padding:0;display:flex;gap:10px;flex-wrap:wrap}
+.xings li{display:flex;align-items:center;gap:8px;font:500 13px var(--ui);letter-spacing:.06em;color:var(--white);padding:8px 12px 8px 8px;border-radius:999px;background:var(--bg)}
+.xings b{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;border:2px solid var(--c);color:var(--c);font:500 12px var(--ui)}
+.then-arrow{align-self:center;font:900 clamp(28px,3vw,40px) var(--display);color:var(--cyan)}
+@media (max-width:760px){.rounds{flex-direction:column}.then-arrow{transform:rotate(90deg)}}
+
+/* act 2 intro */
+.bigclock{font:900 clamp(90px,16vw,200px)/1 var(--display);color:var(--yellow)}
+.track{display:flex;align-items:center;width:min(900px,100%)}
+.track i{width:40px;height:40px;border:2px solid var(--muted);font:500 16px var(--ui);color:var(--white)}
+.track i.end{width:18px;height:18px;border:0;background:var(--cyan)}
+.track i.end.studio{background:var(--lime)}
+.track i[data-a]{color:var(--bg)}
+.track s{flex:1;height:2px;background:var(--surface)}
+.rules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;width:min(900px,100%)}
+.rule{padding:22px;border-radius:20px;background:var(--surface);border:2px solid var(--c);font:700 clamp(18px,2.4vw,28px) var(--display);color:var(--c)}
+@media (max-width:640px){.rules{grid-template-columns:1fr}}
+
+/* arrival */
+.meter{display:flex;gap:8px;align-items:center}
+.meter i{width:56px;height:12px;border-radius:3px;background:var(--surface);display:block}
+.meter i.on{background:var(--pink)}
+
+/* reveal */
+#s-reveal{justify-content:flex-start;gap:24px}
+.compare{width:min(980px,100%);border-collapse:separate;border-spacing:0 10px;text-align:left}
+.compare th{font:500 12px var(--ui);letter-spacing:.1em;color:var(--muted);text-transform:uppercase;padding:0 16px 4px;font-weight:500}
+.compare td{background:var(--surface);padding:14px 16px;vertical-align:middle}
+.compare td:first-child{border-radius:14px 0 0 14px;font:700 24px var(--display);color:var(--muted);width:4ch}
+.compare td:last-child{border-radius:0 14px 14px 0}
+.compare tr.changed td{background:color-mix(in srgb,var(--pink) 18%,var(--surface));box-shadow:inset 0 2px 0 var(--pink),inset 0 -2px 0 var(--pink)}
+.compare tr.changed td:first-child{box-shadow:inset 2px 2px 0 var(--pink),inset 0 -2px 0 var(--pink);color:var(--pink)}
+.compare tr.changed td:last-child{box-shadow:inset -2px 2px 0 var(--pink),inset 0 -2px 0 var(--pink)}
+.compare tr:not(.changed) td{opacity:.7}
+.choice{display:flex;align-items:center;gap:12px;min-width:0}
+.choice svg{width:72px;height:20px;flex:none}
+.choice span{font-size:15px;line-height:1.3}
+.scene-name{display:block;font:500 12px var(--ui);color:var(--muted);letter-spacing:.06em;margin-top:4px}
+.tag{display:inline-block;margin-left:8px;font:500 11px var(--ui);letter-spacing:.1em;color:var(--white);background:var(--pink);border-radius:10px;padding:3px 8px;vertical-align:middle}
+.summary{margin:0;font:700 clamp(22px,3vw,34px)/1.2 var(--display);text-wrap:balance}
+.observed{width:min(980px,100%);display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:24px;align-items:center;text-align:left;border-top:1px solid var(--surface);padding-top:24px}
+.observed h2{margin:0 0 12px;font:700 clamp(20px,2.4vw,28px) var(--display)}
+.observed p{margin:0 0 10px;line-height:1.5;font-size:15px}
+.observed svg{width:100%;height:auto;border-radius:18px;display:block}
+.observed .todo{color:var(--yellow)}
+@media (max-width:760px){.observed{grid-template-columns:1fr}.compare td,.compare th{padding-inline:10px}.choice svg{width:48px}}
+.legend{display:flex;flex-wrap:wrap;gap:10px 22px;justify-content:center;font:500 12px var(--ui);letter-spacing:.06em;color:var(--white)}
+.legend span{display:flex;align-items:center;gap:8px}
+.legend i{width:12px;height:12px;border-radius:50%;display:block}
+.legend svg{width:34px;height:14px}
+
+/* result */
+#s-result{justify-content:flex-start;padding-bottom:0}
+.result{flex:1;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:40px 80px;width:min(1200px,100%);text-align:left}
+.orb{width:min(340px,64vw);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;flex:none;max-width:100%}
+.orb i{width:64%;aspect-ratio:1;border-radius:50%;display:block}
+.who{display:flex;flex-direction:column;gap:18px;max-width:600px;min-width:0}
+.who h1{font-size:clamp(44px,7vw,92px);text-align:left}
+.who .verdict{margin:0;font:700 clamp(20px,2.6vw,30px)/1.25 var(--display);text-wrap:balance}
+.foot{align-self:stretch;margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));background:var(--yellow);color:var(--bg);display:flex;flex-wrap:wrap;gap:16px 24px;align-items:center;justify-content:space-between;
+  padding-left:max(48px,env(safe-area-inset-left,0px));padding-right:max(48px,env(safe-area-inset-right,0px));padding-block:28px calc(28px + env(safe-area-inset-bottom,0px))}
+.foot p{margin:0;font:900 clamp(18px,2.6vw,34px)/1.15 var(--display);text-align:left;max-width:32ch}
+.foot div{display:flex;flex-wrap:wrap;gap:12px}
+.cta.dark{--accent:var(--bg);background:var(--bg);color:var(--yellow)}
+#s-result .foot{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))} /* clears the SOUND button */
+#s-result .foot p{max-width:44ch}
+.orb.pass{background:color-mix(in srgb,var(--lime) 22%,transparent)}.orb.pass i{background:var(--lime);box-shadow:0 0 60px color-mix(in srgb,var(--lime) 60%,transparent)}
+.orb.fail{background:color-mix(in srgb,var(--pink) 22%,transparent)}.orb.fail i{background:var(--pink);box-shadow:0 0 60px color-mix(in srgb,var(--pink) 60%,transparent)}
+.saved{margin:0;font-size:14px;color:var(--muted);text-align:left}.saved.warn{color:var(--yellow)}
+
+/* everyone's results */
+#s-all{justify-content:flex-start;gap:20px}
+.ev-head{width:min(1100px,100%);display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px 24px;text-align:left;margin-top:48px}
+.ev-count{font:900 clamp(56px,9vw,120px)/1 var(--display);color:var(--lime)}
+.ev-head .hint{margin:6px 0 0}
+.ev-grid{width:min(1100px,100%);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:20px}
+.ev-panel{box-sizing:border-box;background:var(--surface);border-radius:16px;padding:clamp(18px,3vw,28px);text-align:left;min-width:0}
+.ev-wide{width:min(1100px,100%)}
+.ev-panel h3{margin:0 0 4px;font:500 13px var(--ui);letter-spacing:.1em;color:var(--cyan)}
+.ev-panel .psub{margin:0 0 18px;color:var(--muted);font-size:13px;line-height:1.4}
+.ev-rows{display:grid;gap:20px}
+.ev-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;align-items:baseline}
+.ev-row b{font:900 clamp(22px,2.4vw,30px)/1 var(--display)}
+.ev-row span{font:500 13px var(--ui);color:var(--muted);font-variant-numeric:tabular-nums}
+.ev-bar{grid-column:1/-1;height:10px;background:var(--bg);border-radius:5px;overflow:hidden}
+.ev-bar i{display:block;height:100%;border-radius:5px}
+.ev-you{display:inline-block;font:500 11px var(--ui);letter-spacing:.1em;color:var(--bg);background:var(--white);border-radius:10px;padding:3px 8px;margin-left:10px;vertical-align:middle}
+.ev-time svg{width:100%;height:auto;display:block}
+.ev-x{display:grid;gap:22px}
+.ev-x h4{margin:0 0 10px;font:500 15px var(--ui);display:flex;flex-wrap:wrap;gap:12px;align-items:baseline}
+.ev-x h4 small{font-size:13px;color:var(--muted);letter-spacing:.04em}
+.ev-split{display:grid;grid-template-columns:9ch minmax(0,1fr);gap:8px 12px;align-items:center;font:500 12px var(--ui);letter-spacing:.08em;color:var(--muted)}
+.ev-seg{display:flex;height:28px;border-radius:6px;overflow:hidden;background:var(--bg)}
+.ev-seg span{display:flex;align-items:center;padding:0 8px;color:var(--bg);font:500 12px var(--ui);white-space:nowrap;overflow:hidden;min-width:0}
+.ev-panel .legend{justify-content:flex-start;margin-bottom:18px}
+.ev-empty{padding:28px 0;text-align:center;color:var(--muted);font-size:14px}
+#s-all>.cta{margin:8px 0 32px}
+@media (max-width:760px){.ev-grid{grid-template-columns:1fr}.ev-head{margin-top:56px}}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@keyframes blink{50%{opacity:.2}}
+.blink{animation:blink .6s steps(1) infinite}
+.sig-dot.count{animation:blink 1s steps(1) infinite}
+@keyframes pulse{from{transform:scale(1);opacity:.85}to{transform:scale(1.35);opacity:0}}
+.pulse{transform-box:fill-box;transform-origin:center;animation:pulse 1.4s ease-out infinite}
+@keyframes honk{from{r:40;opacity:.9}to{r:120;opacity:0}}
+.honk{fill:none;stroke:var(--pink);stroke-width:4;animation:honk .7s ease-out forwards}
+</style>
+</head>
+<body>
+<script src="../shared/nav.js?v=2" data-active="game"></script>
+<svg id="street" xmlns="http://www.w3.org/2000/svg" aria-label="Top-down view of the crosswalk at 15 Westminster Street" role="img">
+  <defs>
+    <pattern id="pave" width="64" height="64" patternUnits="userSpaceOnUse"><path d="M64 0V64M0 64H64" stroke="#75fbfd" stroke-opacity=".07" stroke-width="2" fill="none"/></pattern>
+    <pattern id="winL" x="62" y="0" width="14" height="72" patternUnits="userSpaceOnUse"><rect width="14" height="42" rx="2" fill="#ffff75" fill-opacity=".35"/></pattern>
+    <pattern id="winR" x="1364" y="0" width="14" height="72" patternUnits="userSpaceOnUse"><rect width="14" height="42" rx="2" fill="#ffff75" fill-opacity=".35"/></pattern>
+    <pattern id="tact" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="4.5" cy="4.5" r="2.5" fill="#ffff75" fill-opacity=".75"/></pattern>
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffff75" stop-opacity=".55"/><stop offset="1" stop-color="#ffff75" stop-opacity="0"/></linearGradient>
+  </defs>
+  <g id="static"></g>
+  <g id="pads"></g>
+  <g id="lines"></g>
+  <g id="npcs"></g>
+  <g id="cars"></g>
+  <g id="fx"></g>
+  <circle id="player" r="27" fill="#ffff75" stroke="#ea3380" stroke-width="6" cx="230" cy="512"/>
+  <g id="you" style="display:none"><rect x="-38" y="-86" width="76" height="34" rx="17" fill="#111931" stroke="#ffffff" stroke-width="2"/><text x="0" y="-62" text-anchor="middle" font-family="DM Mono, monospace" font-size="18" font-weight="500" fill="#ffffff" letter-spacing="2">YOU</text></g>
+</svg>
+
+<div id="hud" hidden>
+  <div class="hud-left">
+    <div class="progress panelbg" id="h-prog"><span class="label" id="h-prog-text">CROSSING 1 OF 3</span><div class="dots" id="h-dots"></div><div class="route" id="h-route" hidden></div></div>
+    <div class="clock panelbg" id="h-clock-box" hidden><span class="label">CLASS IN</span><b id="h-clock">0:30</b></div>
+  </div>
+  <div class="signal" id="h-signal" data-phase="COUNT">
+    <span class="label">PEDESTRIAN SIGNAL</span>
+    <div class="sig-main">
+      <span class="sig-icon" id="ic-walk" aria-hidden="true"><svg viewBox="0 0 40 60"><circle cx="23" cy="7" r="6.5"/><path d="M19 16 L27 16 Q30 16 30 20 L31 31 L37 37 Q39 40 36 42 Q34 43 32 41 L25 34 L24 27 L22 36 L27 46 L29 56 Q29 60 25 59 Q23 58 23 55 L21 47 L16 40 L13 52 Q12 56 8 55 Q5 54 6 50 L11 34 L13 23 L9 28 L5 31 Q2 32 1 29 Q1 27 3 26 L9 21 Z"/></svg></span>
+      <span class="sig-icon" id="ic-hand" aria-hidden="true" hidden><svg viewBox="0 0 44 60"><path d="M12 33 V14 Q12 10 15.5 10 Q19 10 19 14 V28 V8 Q19 4 22.5 4 Q26 4 26 8 V28 V10 Q26 6 29.5 6 Q33 6 33 10 V30 V18 Q33 14 36.5 14 Q40 14 40 18 V38 Q40 58 23 58 Q14 58 9 50 L3 40 Q1 36 4 34 Q7 32 9 35 Z"/></svg></span>
+      <b id="h-phase">COUNTDOWN</b>
+    </div>
+    <div class="sig-count" id="h-count"><span class="label">Light changes in</span><strong id="h-secs">6</strong><em>s</em></div>
+  </div>
+  <p class="prompt" id="h-prompt" hidden></p>
+  <div class="intro hit" id="h-hit" hidden><h2 id="hit-title">YOU GOT HIT.</h2><p id="hit-text">Get hit twice and it’s game over.</p><button class="cta" id="hit-btn" data-own-sound type="button">TRY AGAIN →</button></div>
+  <div class="intro" id="h-intro" hidden><h2 id="h-intro-title">PRACTICE</h2><p id="h-intro-text">Press → to start.</p><span class="k big" id="h-intro-key" aria-hidden="true">→</span><button class="cta glow" id="h-coach-go" data-own-sound type="button" hidden>START CROSSING 1 →</button></div>
+  <div class="controls" id="h-controls">
+    <div class="keys">
+      <button data-own-sound class="key sm" data-k="left" aria-label="Step back: hold the left arrow"><span class="cap">←</span></button>
+      <button data-own-sound class="key" id="k-walk" aria-label="Walk: hold the right arrow; let go to stop"><span class="cap">→</span><span class="kl"><b>WALK</b><small>HOLD</small></span></button>
+      <div class="ud"><button data-own-sound class="key sm" data-k="up" aria-label="Step up: hold the up arrow"><span class="cap">↑</span></button><button data-own-sound class="key sm" data-k="down" aria-label="Step down: hold the down arrow"><span class="cap">↓</span></button></div>
+      <button data-own-sound class="key" id="k-run" aria-label="Run: hold Shift together with an arrow"><span class="cap">SHIFT</span><span class="kl"><b>RUN</b><small>HOLD + ARROW</small></span></button>
+    </div>
+  </div>
+  <div class="card" id="h-card" hidden>
+    <span class="eyebrow" id="c-eyebrow">ROUND 1</span>
+    <h2 id="c-head">CROSSING 1 DONE.</h2>
+    <button class="cta glow" id="c-next" data-own-sound type="button">NEXT CROSSING →</button>
+  </div>
+  <button class="exit" id="h-exit" data-own-sound type="button" title="Exit (Esc)">✕ EXIT</button>
+  <div class="intro quit" id="h-quit" hidden><h2>LEAVE THE GAME?</h2><p>Your progress won’t be&nbsp;saved.</p><div class="quit-btns"><button class="cta" id="q-stay" data-own-sound type="button">KEEP PLAYING</button><button class="cta quiet" id="q-exit" data-own-sound type="button">EXIT</button></div></div>
+</div>
+<div id="fade"></div>
+<div class="brand" id="brand">NOBODY TRUSTS GREEN</div>
+<button class="snd" id="snd" aria-pressed="true" title="Sound (M)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span id="snd-lbl">SOUND ON</span></button>
+
+<section class="screen" id="s-landing">
+  <div class="eyebrow place">15 Westminster Street, Providence</div>
+  <h1 style="color:var(--lime)">WOULD YOU CROSS?</h1>
+  <button class="push" id="b-start" data-own-sound type="button" aria-label="Start"><span class="ring"></span><span class="face">START</span></button>
+  <div class="commit">
+    <p class="hint"><span class="mouse-only">Press → or click START</span><span class="touch-only">Tap START</span></p>
+  </div>
+</section>
+
+<section class="screen" id="s-overview" hidden>
+  <div class="corner eyebrow">The game</div>
+  <h1 class="how-title">TWO ROUNDS.</h1>
+  <div class="rounds">
+    <article class="round" style="--c:var(--lime)">
+      <span class="eyebrow">Round 01</span>
+      <h2>NO RUSH</h2>
+      <p>3 crossings · no&nbsp;clock</p>
+    </article>
+    <span class="then-arrow" aria-hidden="true">→</span>
+    <article class="round" style="--c:var(--pink)">
+      <span class="eyebrow">Round 02</span>
+      <h2>LATE FOR CLASS</h2>
+      <p>Same 3 crossings · 30&nbsp;seconds</p>
+    </article>
+  </div>
+  <button class="cta glow" id="b-overview" data-own-sound type="button">NEXT →</button>
+</section>
+
+<section class="screen" id="s-how" hidden>
+  <h1 class="how-title">HOW TO PLAY.</h1>
+  <div class="two-keys three">
+    <div class="two-key"><span class="arrows" aria-hidden="true"><span class="k big">↑</span><span class="k big">←</span><span class="k big">↓</span><span class="k big">→</span></span><b>MOVE</b><span class="hint">Hold an arrow to move. Let go to&nbsp;stop.</span></div>
+    <span class="plus" aria-hidden="true">+</span>
+    <div class="two-key"><span class="k big">SHIFT</span><b>RUN</b><span class="hint">Hold SHIFT with an arrow to&nbsp;run.</span></div>
+    <div class="two-key"><span class="dodge-dot" aria-hidden="true"><i></i></span><b>DODGE</b><span class="hint">Don’t bump into people coming your&nbsp;way.</span></div>
+  </div>
+  <button class="cta glow" id="b-how" data-own-sound type="button">PRESS → TO PRACTICE</button>
+</section>
+
+<section class="screen" id="s-data" hidden>
+  <div class="corner eyebrow">The real data</div>
+  <h1 class="how-title" style="font-size:clamp(28px,4vw,52px)">WHAT WE OBSERVED AT 15&nbsp;WESTMINSTER.</h1>
+  <section class="observed" aria-labelledby="obs-h">
+    <div id="p-obs"></div>
+    <div>
+      <h2 id="obs-h">12 people crossing</h2>
+      <p id="obs-text"></p>
+      <p class="hint" id="obs-note"></p>
+    </div>
+  </section>
+  <div class="legend" id="rv-legend"></div>
+  <div class="quit-btns"><button class="cta" id="b-again" data-own-sound>PLAY AGAIN</button><a class="cta quiet" href="../data/index.html" style="text-decoration:none">NEXT · DATA →</a></div>
+</section>
+
+<section class="screen" id="s-result" hidden>
+  <div class="result">
+    <div class="orb" id="r-orb"><i></i></div>
+    <div class="who">
+      <div class="eyebrow">Your result</div>
+      <h1 id="r-type">YOU MADE IT.</h1>
+      <p class="verdict" id="r-verdict">You got to class with 0:06 to&nbsp;spare.</p>
+      <p class="saved" id="r-saved"></p>
+    </div>
+  </div>
+  <div class="foot"><p id="r-foot"></p><div><button class="cta ghost" id="b-retake" data-own-sound>RETAKE</button><button class="cta dark" id="b-all" data-own-sound>SEE EVERYONE’S RESULTS →</button></div></div>
+</section>
+
+<section class="screen" id="s-all" hidden>
+  <div class="ev-head">
+    <div>
+      <div class="eyebrow">Everyone who has played</div>
+      <div class="ev-count" id="ev-count">0</div>
+      <p class="hint" id="ev-count-lbl">people so far</p>
+    </div>
+  </div>
+  <p class="saved warn" id="ev-status" hidden></p>
+  <div class="ev-grid">
+    <div class="ev-panel">
+      <h3>MADE IT OR LATE</h3>
+      <p class="psub">Who reached class before the 30-second clock ran&nbsp;out.</p>
+      <div class="ev-rows" id="ev-split"></div>
+    </div>
+    <div class="ev-panel ev-time">
+      <h3>TIME TO SPARE</h3>
+      <p class="psub">Each dot is one person. Further right = more time left when they reached&nbsp;class.</p>
+      <div id="ev-time"></div>
+    </div>
+  </div>
+  <div class="ev-panel ev-wide">
+    <h3>CROSSING BY CROSSING</h3>
+    <p class="psub">The signal people stepped off on, with no rush and when late for&nbsp;class.</p>
+    <div class="legend" id="ev-legend"></div>
+    <div class="ev-x" id="ev-x"></div>
+  </div>
+  <button class="cta" id="b-data" data-own-sound>WHAT WE OBSERVED AT 15&nbsp;WESTMINSTER →</button>
+</section>
+
+<script>
+(() => {
+const W=1440,R0=340,RW=760,BY=362,BH=300,PY=512,START=230,END=1237,CARL=95,CARH=47.5;
+const PH={WALK:'#bafd50',COUNT:'#ffff75',DONT:'#ea3380'};               // colour = signal when you stepped off
+const PHNAME={WALK:'WALK',COUNT:'COUNTDOWN',DONT:"DON’T WALK"};
+const SPEED={walk:300,run:640};
+const YMIN=BY+30,YMAX=BY+BH-30;                                      // you can step up and down inside the crosswalk
+const DIRS=['right','left','up','down'],ARROWS={ArrowRight:'right',ArrowLeft:'left',ArrowUp:'up',ArrowDown:'down'};
+const laneX=l=>R0+RW*(2*l+1)/8;
+const $=id=>document.getElementById(id);
+const svg=$('street'),gLines=$('lines'),gCars=$('cars'),gNpcs=$('npcs'),gFx=$('fx'),player=$('player'),you=$('you');
+const NS='http://www.w3.org/2000/svg';
+const el=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;};
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- what we recorded (Ref viz02, panel 02: 12 people crossing) ----------
+   p = signal when they started, a = crossed straight over ('walked') or stopped partway ('paused'), d = direction.
+   People who waited at the curb are not drawn in Ref viz02, so they are not counted here. */
+const OBS=[
+  {p:'DONT',a:'walked',d:1},{p:'DONT',a:'paused',d:1},{p:'DONT',a:'walked',d:-1},{p:'COUNT',a:'paused',d:-1},
+  {p:'COUNT',a:'paused',d:1},{p:'DONT',a:'walked',d:-1},{p:'WALK',a:'walked',d:-1},{p:'WALK',a:'paused',d:-1},
+  {p:'WALK',a:'walked',d:1},{p:'COUNT',a:'walked',d:-1},{p:'WALK',a:'walked',d:1},{p:'WALK',a:'walked',d:-1}];
+const OBS_WHEN=''; // e.g. 'on Tuesday, Oct 14, 12:55–1:09 pm (class change)' — fill in from the field notes
+const count=f=>OBS.filter(f).length;
+
+/* ---------- static street ---------- */
+const STREET_SIGS=[];
+(function drawStreet(){
+  const g=$('static');const T=-2400,HH=5800;
+  el('rect',{x:-3000,y:T,width:7440,height:HH,fill:'#213d52'},g);
+  el('rect',{x:-3000,y:T,width:3000+R0,height:HH,fill:'url(#pave)'},g);
+  el('rect',{x:R0+RW,y:T,width:3000,height:HH,fill:'url(#pave)'},g);
+  el('rect',{x:-3000,y:T,width:3090,height:HH,fill:'#1b2547'},g);
+  el('rect',{x:1350,y:T,width:3090,height:HH,fill:'#1b2547'},g);
+  el('line',{x1:90,y1:T,x2:90,y2:T+HH,stroke:'#75fbfd','stroke-opacity':.35,'stroke-width':2},g);
+  el('line',{x1:1350,y1:T,x2:1350,y2:T+HH,stroke:'#75fbfd','stroke-opacity':.35,'stroke-width':2},g);
+  el('rect',{x:62,y:T,width:14,height:HH,fill:'url(#winL)'},g);
+  el('rect',{x:1364,y:T,width:14,height:HH,fill:'url(#winR)'},g);
+  for(const [x,y,d] of [[140,-160,84],[140,48,84],[140,874,84],[140,1090,84],[1180,874,84],[1200,732,66],[1180,-160,84],[1180,1090,84],[140,-380,84],[1180,-380,84]]){
+    el('circle',{cx:x+d/2,cy:y+d/2,r:d/2,fill:'#bafd50','fill-opacity':.16,stroke:'#bafd50','stroke-opacity':.55,'stroke-width':2,'stroke-dasharray':'4 6'},g);
+    el('circle',{cx:x+d/2,cy:y+d/2,r:6,fill:'#bafd50','fill-opacity':.6},g);
+  }
+  el('rect',{x:R0,y:T,width:RW,height:HH,fill:'#00017a'},g);
+  const n=12,sw=44,gap=(RW-20-n*sw)/(n-1);
+  for(let i=0;i<n;i++)el('rect',{x:R0+10+i*(sw+gap),y:BY,width:sw,height:BH,fill:'#75fbfd','fill-opacity':.22},g);
+  el('rect',{x:R0-5,y:T,width:5,height:HH,fill:'#75fbfd','fill-opacity':.6},g);
+  el('rect',{x:R0+RW,y:T,width:5,height:HH,fill:'#75fbfd','fill-opacity':.6},g);
+  el('rect',{x:R0+8,y:BY-40,width:RW/2-14,height:10,fill:'#fff','fill-opacity':.85},g);
+  el('rect',{x:R0+RW/2+6,y:BY+BH+30,width:RW/2-14,height:10,fill:'#fff','fill-opacity':.85},g);
+  for(const [y0,y1] of [[T,BY-52],[BY+BH+52,T+HH]])for(const dx of [-8,4])el('rect',{x:R0+RW/2+dx,y:y0,width:4,height:y1-y0,fill:'#ffff75','fill-opacity':.9},g);
+  for(const lx of [R0+RW/4,R0+3*RW/4])for(const [y0,y1] of [[T,BY-18],[BY+BH+18,T+HH]])el('line',{x1:lx,y1:y0,x2:lx,y2:y1,stroke:'#75fbfd','stroke-width':4,'stroke-dasharray':'22 16'},g);
+  el('rect',{x:R0-46,y:BY+24,width:36,height:BH-48,fill:'url(#tact)'},g);
+  el('rect',{x:R0+RW+10,y:BY+24,width:36,height:BH-48,fill:'url(#tact)'},g);
+  // corner signal poles: the round light glows in the live signal colour (see setStreetSignal)
+  for(const [x,y] of [[R0-96,BY-70],[R0+RW+30,BY+BH+8]]){
+    const dot=el('circle',{cx:x+15,cy:y+27,r:15,fill:'#75fbfd',class:'sig-dot'},g);
+    el('rect',{x:x+36,y:y+14,width:18,height:24,rx:4,fill:'#1b2547',stroke:'#75fbfd','stroke-width':2},g);
+    el('circle',{cx:x+45,cy:y+26,r:5,fill:'#bafd50'},g);
+    STREET_SIGS.push(dot);
+  }
+  // where you start and where the crossing ends (you stop automatically on FINISH)
+  const p=$('pads');
+  el('line',{x1:START+60,y1:PY,x2:END-66,y2:PY,stroke:'#ffffff','stroke-opacity':.4,'stroke-width':5,'stroke-linecap':'round','stroke-dasharray':'0.1 18'},p);
+  el('path',{d:`M${END-84} ${PY-11} L${END-66} ${PY} L${END-84} ${PY+11}`,fill:'none',stroke:'#ffffff','stroke-opacity':.5,'stroke-width':4,'stroke-linecap':'round','stroke-linejoin':'round'},p);
+  el('rect',{x:START-50,y:PY-50,width:100,height:100,rx:20,fill:'#75fbfd','fill-opacity':.12,stroke:'#75fbfd','stroke-width':3,'stroke-dasharray':'10 8'},p);
+  const label=(x,y,t,c)=>{const e=el('text',{x,y,'text-anchor':'middle','font-family':'DM Mono, monospace','font-size':22,'font-weight':500,'letter-spacing':4,fill:c},p);e.textContent=t;};
+  label(START,PY+84,'START','#75fbfd');
+  el('rect',{x:END-56,y:PY-56,width:112,height:112,rx:22,fill:'#bafd50','fill-opacity':.2,stroke:'#bafd50','stroke-width':4},p);
+  el('rect',{x:END-56,y:PY-56,width:112,height:112,rx:22,fill:'none',stroke:'#bafd50','stroke-width':3,class:'pulse'},p);
+  label(END,PY+90,'FINISH','#bafd50');
+})();
+
+let vb={x:0,y:0,w:W,h:1024};
+function fit(){
+  if(!innerWidth||!innerHeight)return; // no size yet (hidden or zero-height window)
+  const a=innerWidth/innerHeight,needW=1160,needH=820;
+  const w=Math.max(needW,needH*a),h=w/a;
+  vb={x:720-w/2,y:PY-h/2,w,h};
+  svg.setAttribute('viewBox',`${vb.x} ${vb.y} ${w} ${h}`);
+  svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+}
+addEventListener('resize',fit);
+
+/* ---------- marks: colour = signal when you stepped off; line = walked, » = ran, ‖ = stopped, ring = waited for WALK ---------- */
+function drawMark(parent,x0,x1,y,phase,action,opts={}){
+  const k=opts.k||1,c=PH[phase],dir=x1>x0?1:-1;
+  if(opts.waited)el('circle',{cx:x0,cy:y,r:16*k,fill:'none',stroke:c,'stroke-width':4*k},parent);
+  el('line',{x1:x0+(opts.waited?dir*16*k:0),y1:y,x2:x1-dir*18*k,y2:y,stroke:c,'stroke-width':5*k},parent);
+  el('path',{d:`M${x1-dir*18*k} ${y-9*k} L${x1} ${y} L${x1-dir*18*k} ${y+9*k} Z`,fill:c},parent);
+  if(opts.startDot&&!opts.waited)el('circle',{cx:x0,cy:y,r:8*k,fill:c},parent);
+  if(action==='ran'){const n=Math.max(2,Math.round(Math.abs(x1-x0)/(160*k)));for(let i=1;i<=n;i++){const x=x0+(x1-x0)*i/(n+1);
+    for(const o of [0,10*k])el('path',{d:`M${x+dir*(o-6*k)} ${y-9*k} L${x+dir*(o+2*k)} ${y} L${x+dir*(o-6*k)} ${y+9*k}`,fill:'none',stroke:'#111931','stroke-width':3.2*k,'stroke-linecap':'round','stroke-linejoin':'round'},parent);}}
+  if(action==='paused'){const px=opts.pause!=null?opts.pause:(x0+x1)/2;
+    el('rect',{x:px-12*k,y:y-20*k,width:24*k,height:40*k,fill:'#111931',rx:3*k},parent);
+    for(const dx of [-8,2])el('rect',{x:px+dx*k,y:y-16*k,width:6*k,height:32*k,rx:2*k,fill:c},parent);}
+}
+function markSVG(r){const s=document.createElementNS(NS,'svg');s.setAttribute('viewBox','0 0 80 24');s.setAttribute('aria-hidden','true');
+  drawMark(s,8,76,12,r.phase,r.a,{k:.5,waited:r.waited,startDot:true});return s;}
+function describe(r){
+  if(!r)return 'Not reached (late)';
+  const how=r.a==='paused'?'stopped partway':r.a==='ran'?'ran across':'walked across';
+  let s=r.waited?`Waited ${Math.round(r.wait)} s for WALK, then ${how}`:`Stepped off on ${PHNAME[r.phase]} after ${Math.round(r.wait)} s, ${how}`;
+  return s;
+}
+
+/* ---------- sound: everything is synthesized live with Web Audio (no audio files) ----------
+   ambience · car engines by distance · footsteps · signal beeps · horn + tyre screech · countdown ticks · heartbeat (round 2) */
+const SFX=(()=>{
+  let ctx=null,master=null,noise=null,amb=null,muted=false,stepAcc=0,tickAcc=0,beatAcc=0,murmurIn=2;
+  const cars=new Map();
+  try{muted=localStorage.getItem('wyc-muted')==='1';}catch(e){}
+  const ok=()=>!!(ctx&&master);
+  function init(){
+    if(ctx){if(ctx.state==='suspended')ctx.resume();return;}
+    try{ctx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+    master=ctx.createGain();master.gain.value=muted?0:0.9;master.connect(ctx.destination);
+    const len=ctx.sampleRate*2;noise=ctx.createBuffer(1,len,ctx.sampleRate);const d=noise.getChannelData(0);
+    let b=0;for(let i=0;i<len;i++){const w=Math.random()*2-1;b=(b+0.02*w)/1.02;d[i]=i%2?w:b*3.5;}   // mix of white and brown noise
+  }
+  const src=(loop=true)=>{const s=ctx.createBufferSource();s.buffer=noise;s.loop=loop;return s;};
+  function env(g,t,a,peak,d){g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+a);g.gain.exponentialRampToValueAtTime(0.0001,t+a+d);}
+  function tone(f,at,d,type='sine',peak=0.1){const t=ctx.currentTime+at,o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=f;env(g,t,0.005,peak,d);o.connect(g).connect(master);o.start(t);o.stop(t+d+0.05);}
+
+  // 1. street ambience: low traffic rumble + a murmur of distant voices
+  function ambience(on){
+    if(!ok())return;
+    if(on&&!amb){
+      const out=ctx.createGain();out.gain.value=0;out.connect(master);
+      const rumble=src(),lp=ctx.createBiquadFilter(),rg=ctx.createGain();lp.type='lowpass';lp.frequency.value=320;rg.gain.value=0.03;rumble.connect(lp).connect(rg).connect(out);
+      const crowd=src(),bp=ctx.createBiquadFilter(),cg=ctx.createGain();bp.type='bandpass';bp.frequency.value=650;bp.Q.value=1.4;cg.gain.value=0.012;crowd.connect(bp).connect(cg).connect(out);
+      const lfo=ctx.createOscillator(),lg=ctx.createGain();lfo.frequency.value=0.3;lg.gain.value=0.008;lfo.connect(lg).connect(cg.gain);
+      rumble.start();crowd.start(ctx.currentTime,0.7);lfo.start();
+      out.gain.linearRampToValueAtTime(1,ctx.currentTime+1.2);
+      amb={out,nodes:[rumble,crowd,lfo]};
+    }else if(!on&&amb){
+      const a=amb;amb=null;const t=ctx.currentTime;a.out.gain.cancelScheduledValues(t);a.out.gain.setValueAtTime(a.out.gain.value,t);a.out.gain.linearRampToValueAtTime(0,t+0.6);
+      setTimeout(()=>a.nodes.forEach(n=>{try{n.stop();}catch(e){}}),800);
+    }
+  }
+  function murmur(){  // a few soft syllables, panned somewhere on the sidewalk
+    const t=ctx.currentTime,pan=ctx.createStereoPanner?ctx.createStereoPanner():null,g=ctx.createGain();g.gain.value=0.0001;
+    if(pan){pan.pan.value=Math.random()*1.6-0.8;g.connect(pan).connect(master);}else g.connect(master);
+    const o=ctx.createOscillator(),bp=ctx.createBiquadFilter();o.type='sawtooth';bp.type='bandpass';bp.frequency.value=900;bp.Q.value=4;o.connect(bp).connect(g);
+    const base=150+Math.random()*90,n=2+Math.floor(Math.random()*4);let at=t;
+    for(let i=0;i<n;i++){const d=0.12+Math.random()*0.16;o.frequency.setValueAtTime(base*(0.9+Math.random()*0.3),at);bp.frequency.setValueAtTime(600+Math.random()*900,at);
+      g.gain.setValueAtTime(0.0001,at);g.gain.exponentialRampToValueAtTime(0.012,at+0.03);g.gain.exponentialRampToValueAtTime(0.0001,at+d);at+=d+0.05;}
+    o.start(t);o.stop(at+0.1);
+  }
+
+  // 2. approaching cars: engine + tyre noise, louder as they near the crosswalk, panned left/right
+  function carAdd(c){
+    if(!ok()||cars.has(c))return;
+    const eng=ctx.createOscillator(),eng2=ctx.createOscillator(),lp=ctx.createBiquadFilter(),g=ctx.createGain();
+    eng.type='sawtooth';eng2.type='square';eng.frequency.value=45;eng2.frequency.value=90;lp.type='lowpass';lp.frequency.value=300;g.gain.value=0;
+    const tyre=src(),tb=ctx.createBiquadFilter(),tg=ctx.createGain();tb.type='bandpass';tb.frequency.value=800;tb.Q.value=0.6;tg.gain.value=0;
+    const pan=ctx.createStereoPanner?ctx.createStereoPanner():null,out=pan||master;
+    eng.connect(lp);eng2.connect(lp);lp.connect(g).connect(out);tyre.connect(tb).connect(tg).connect(out);if(pan)pan.connect(master);
+    eng.start();eng2.start();tyre.start(ctx.currentTime,Math.random()*1.5);
+    cars.set(c,{eng,eng2,tyre,g,tg,pan});
+  }
+  function carUpdate(c,px){
+    const n=cars.get(c);if(!n)return;
+    const t=ctx.currentTime,dist=Math.abs(c.y-PY),near=Math.max(0,1-dist/700),sp=Math.min(1,(c.v||0)/420);
+    n.g.gain.setTargetAtTime(near*near*(0.004+0.11*sp)*Math.min(1,sp*4),t,0.08);
+    n.tg.gain.setTargetAtTime(near*near*sp*0.07,t,0.08);
+    n.eng.frequency.setTargetAtTime(38+(c.v||0)*0.13,t,0.1);n.eng2.frequency.setTargetAtTime(76+(c.v||0)*0.26,t,0.1);
+    if(n.pan)n.pan.pan.setTargetAtTime(Math.max(-1,Math.min(1,((c.x??laneX(c.lane))-px)/700)),t,0.1);
+  }
+  function carRemove(c){const n=cars.get(c);if(!n)return;cars.delete(c);const t=ctx.currentTime;n.g.gain.setTargetAtTime(0,t,0.05);n.tg.gain.setTargetAtTime(0,t,0.05);
+    setTimeout(()=>{for(const k of ['eng','eng2','tyre'])try{n[k].stop();}catch(e){}},300);}
+  function clearCars(){for(const c of [...cars.keys()])carRemove(c);}
+
+  // 3. footsteps: light and even when walking, faster and heavier when running, silent when stopped
+  function step(run){
+    const t=ctx.currentTime,s=src(false),bp=ctx.createBiquadFilter(),g=ctx.createGain();
+    bp.type='bandpass';bp.frequency.value=run?600:1100;bp.Q.value=1.4;env(g,t,0.004,run?0.32:0.16,run?0.09:0.06);
+    s.connect(bp).connect(g).connect(master);s.start(t,Math.random()*1.5);s.stop(t+0.2);
+    if(run){const o=ctx.createOscillator(),og=ctx.createGain();o.frequency.setValueAtTime(120,t);o.frequency.exponentialRampToValueAtTime(48,t+0.08);env(og,t,0.003,0.22,0.09);o.connect(og).connect(master);o.start(t);o.stop(t+0.15);}
+  }
+  // 4. pedestrian signal: chirp for WALK, single tone for COUNTDOWN, low double click for DON'T WALK
+  function signal(p){
+    if(!ok())return;
+    if(p==='WALK'){tone(1047,0,0.09,'sine',0.12);tone(1397,0.12,0.12,'sine',0.12);}
+    else if(p==='COUNT')tone(880,0,0.14,'triangle',0.1);
+    else{tone(420,0,0.06,'square',0.05);tone(420,0.13,0.06,'square',0.05);}
+  }
+  // 5. near miss: horn + tyre screech
+  function nearMiss(){
+    if(!ok())return;
+    const t=ctx.currentTime,g=ctx.createGain();env(g,t,0.02,0.13,0.55);g.connect(master);
+    for(const f of [392,494]){const o=ctx.createOscillator(),lp=ctx.createBiquadFilter();o.type='square';o.frequency.value=f;lp.type='lowpass';lp.frequency.value=2400;o.connect(lp).connect(g);o.start(t);o.stop(t+0.62);}
+    const s=src(false),bp=ctx.createBiquadFilter(),sg=ctx.createGain();bp.type='bandpass';bp.Q.value=14;bp.frequency.setValueAtTime(3300,t);bp.frequency.exponentialRampToValueAtTime(1500,t+0.7);
+    env(sg,t,0.02,0.3,0.7);s.connect(bp).connect(sg).connect(master);s.start(t);s.stop(t+0.8);
+  }
+  // 6. ticking: speeds up as the countdown (or the class clock) runs out
+  function click(u){tone(1400+u*900,0,0.025,'square',0.035+u*0.05);}
+  // 7. heartbeat in round 2: faster and stronger as the class clock runs down
+  function beat(u){const t=ctx.currentTime;const th=(at,f,p)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.setValueAtTime(f,t+at);o.frequency.exponentialRampToValueAtTime(f*0.6,t+at+0.12);env(g,t+at,0.01,p,0.14);o.connect(g).connect(master);o.start(t+at);o.stop(t+at+0.22);};
+    th(0,62,0.18+u*0.2);th(0.17,50,0.12+u*0.14);}
+
+  // called every frame while a crossing is running
+  function update(dt,st){
+    if(!ok())return;
+    if(st.moving){stepAcc+=dt;const iv=st.moving==='run'?0.27:0.5;if(stepAcc>=iv){stepAcc=0;step(st.moving==='run');}}else stepAcc=0.35;
+    let iv=null,u=0;
+    if(st.count!=null){const k=Math.max(0,Math.min(1,st.count/6));iv=0.22+0.78*k;u=1-k;}
+    if(st.clock!=null&&st.clock<10){const k=Math.max(0,st.clock/10),ivc=0.2+0.8*k;if(iv==null||ivc<iv){iv=ivc;u=Math.max(u,1-k);}}
+    if(iv!=null){tickAcc+=dt;if(tickAcc>=iv){tickAcc=0;click(u);}}else tickAcc=0;
+    if(st.clock!=null){const k=1-Math.max(0,Math.min(1,st.clock/30)),bpm=70+80*k;beatAcc+=dt;if(beatAcc>=60/bpm){beatAcc=0;beat(k);}}else beatAcc=0;
+    if(amb){murmurIn-=dt;if(murmurIn<=0){murmur();murmurIn=1.5+Math.random()*3;}}
+  }
+  // crosswalk-style beep on press (same as the quiz section's push buttons)
+  function bump(){if(!ok())return;tone(150,0,.12,'triangle',.16);tone(95,.03,.16,'sine',.14);}
+  function beep(){if(!ok())return;const t=ctx.currentTime,o=ctx.createOscillator(),g=ctx.createGain();o.type='square';o.frequency.value=880;g.gain.setValueAtTime(.06,t);g.gain.exponentialRampToValueAtTime(.0001,t+.09);o.connect(g).connect(master);o.start(t);o.stop(t+.1);}
+  document.addEventListener('visibilitychange',()=>{if(!ctx)return;if(document.hidden)ctx.suspend();else ctx.resume();});
+  function setMuted(m){muted=m;try{localStorage.setItem('wyc-muted',m?'1':'0');}catch(e){}if(ok())master.gain.setTargetAtTime(m?0:0.9,ctx.currentTime,0.05);renderBtn();}
+  function renderBtn(){const b=document.getElementById('snd');if(!b)return;b.setAttribute('aria-pressed',String(!muted));document.getElementById('snd-lbl').textContent=muted?'SOUND OFF':'SOUND ON';}
+  return {init,beep,bump,ambience,carAdd,carUpdate,carRemove,clearCars,signal,nearMiss,update,setMuted,toggle:()=>setMuted(!muted),renderBtn};
+})();
+
+/* ---------- cars: cruise, queue, stop at red, brake for people; near misses instead of collisions ---------- */
+function makeCar(c){
+  const g=el('g',{class:'car'},gCars);
+  el('path',{d:'M-20 44 L20 44 L36 146 L-36 146 Z',fill:'url(#beam)',class:'beam'},g);
+  el('rect',{x:-27.5,y:-47.5,width:55,height:95,rx:12,fill:'#75fbfd'},g);
+  el('rect',{x:-19,y:14,width:38,height:16,rx:4,fill:'#00017a','fill-opacity':.45},g);
+  for(const x of [-22,12])el('rect',{x,y:-49,width:10,height:6,rx:2,fill:'#ea3380',class:'brake'},g);
+  if(c.blink){el('circle',{cx:24,cy:40,r:6,fill:'#ffff75',class:'blink'},g);el('circle',{cx:24,cy:-40,r:6,fill:'#ffff75',class:'blink'},g);}
+  c.g=g;c.v=c.v??c.vmax;c.alarm=false;place(c);SFX.carAdd(c);return c;
+}
+function place(c){const ang=c.ang!=null?c.ang:(c.dir>0?0:180);c.g.setAttribute('transform',`translate(${(c.x??laneX(c.lane)).toFixed(1)} ${c.y.toFixed(1)}) rotate(${ang.toFixed(1)})`);}
+function alarm(c,w){
+  if(c.alarm)return;c.alarm=true;
+  el('circle',{cx:c.x??laneX(c.lane),cy:c.y,r:40,class:'honk'},gFx);
+  c.g.classList.add('flash');setTimeout(()=>c.g.classList.remove('flash'),800);
+  if(w.isPlayer){SFX.nearMiss();player.setAttribute('stroke','#ffffff');setTimeout(()=>player.setAttribute('stroke','#ea3380'),500);}
+}
+/* the turning car swings in from the right lanes and joins lane 1 heading down */
+const TURN=[[1130,-110],[1080,110],[625,90],[625,250]];
+function bez(t){const [a,b,c,d]=TURN;const m=1-t;const f=i=>m*m*m*a[i]+3*m*m*t*b[i]+3*m*t*t*c[i]+t*t*t*d[i];
+  const df=i=>3*m*m*(b[i]-a[i])+6*m*t*(c[i]-b[i])+3*t*t*(d[i]-c[i]);return {x:f(0),y:f(1),dx:df(0),dy:df(1)};}
+
+/* ---------- the three crossings (played twice: no rush, then late). Everything is timed, so both rounds are identical. ---------- */
+const CROSSINGS=[
+  {name:'Countdown · traffic waiting at the light',signal:[['COUNT',6],['DONT',14],['WALK',20]],
+   cars:[{lane:0,y:205,v:0,vmax:330},{lane:3,y:819,v:0,vmax:280},{lane:1,y:-120,vmax:300}],
+   spawn:{every:7,list:[[1.5,1,300],[3,2,430],[5.5,0,260]]},
+   npcs:[{dy:-74,start:1.0,speed:340}],                                    // someone goes early on the countdown
+   oncoming:[{at:0.4,y:440,speed:300},{at:2.2,y:590,speed:280},{at:{w:0.4},y:470,speed:260},{at:{w:1.6},y:560,speed:280},{at:{w:2.8},y:420,speed:250}]},
+  {name:'Don’t walk · gaps in traffic',signal:[['DONT',12],['WALK',20]],
+   cars:[{lane:1,y:-40,vmax:390},{lane:2,y:1120,vmax:210}],
+   spawn:{every:6,list:[[0.8,0,430],[2.4,3,180],[3.8,1,360],[5.2,2,300]]},
+   npcs:[{dy:-74,start:'WALK',speed:300},{dy:74,start:4.6,speed:640}],      // one waits for WALK, one runs a gap
+   oncoming:[{at:4.2,y:600,speed:560},{at:{w:0.3},y:450,speed:270},{at:{w:1.4},y:560,speed:260},{at:{w:2.6},y:500,speed:280}]},
+  {name:'Walk · a car turning in',signal:[['WALK',10],['COUNT',6],['DONT',14],['WALK',20]],
+   cars:[{lane:0,y:205,v:0,vmax:300},{lane:2,y:819,v:0,vmax:300}],
+   turn:0.6,spawn:{every:8,list:[[2.5,3,260],[5,1,340]]},
+   npcs:[{dy:74,start:3.2,speed:300}],                                    // someone waits for the turning car, then goes
+   oncoming:[{at:0.6,y:500,speed:260},{at:1.6,y:430,speed:280},{at:2.7,y:590,speed:250},{at:4,y:470,speed:270}]},
+];
+const PRACTICE={signal:[['WALK',999]],cars:[],spawn:null,npcs:[]};
+const ACT2_CLOCK=30;
+
+let S,R=null,raf=0,last=0;
+function resetRun(){S={screen:'landing',act1:[],act2:[],clock:ACT2_CLOCK,late:false};}
+
+/* ---------- screens ---------- */
+const screens=['landing','overview','how','result','all','data'];
+function show(name){
+  S.screen=name;
+  for(const s of screens)$('s-'+s).hidden=s!==name;
+  const game=name==='play'||name==='card';
+  $('hud').hidden=!game;$('brand').hidden=game;document.body.classList.toggle('ingame',game);document.body.classList.toggle('ntg-nav-off',game);SFX.ambience(game);if(!game)SFX.clearCars();
+  if(!game)stopLoop();
+  if(!game){/* buttons are not auto-focused, so they only light up on hover or Tab; → works on every screen */if(document.activeElement&&document.activeElement!==document.body)document.activeElement.blur();$('s-'+name).scrollTop=0;}
+}
+function fadeThen(fn){if(reduce){fn();return;}$('fade').classList.add('on');setTimeout(()=>{fn();$('fade').classList.remove('on');},280);}
+
+/* ---------- signal timeline ---------- */
+function phaseAt(sig,t){const total=sig.reduce((a,p)=>a+p[1],0);let tt=t%total;for(const [p,d] of sig){if(tt<d)return {p,left:d-tt};tt-=d;}return {p:sig[0][0],left:sig[0][1]};}
+
+/* ---------- round runtime: act 0 = practice, 1 = no rush, 2 = late (same crossings) ---------- */
+function startRound(act,i,retry){
+  const def=act===0?PRACTICE:CROSSINGS[i];
+  SFX.clearCars();gLines.innerHTML='';gCars.innerHTML='';gNpcs.innerHTML='';gFx.innerHTML='';
+  R={act,i,def,practice:act===0,step:'walk',time:0,phase:def.signal[0][0],left:def.signal[0][1],
+     state:'curb',shift:false,px:START,py:PY,keys:{right:false,left:false,up:false,down:false},path:[[START,PY]],
+     stepT:null,stepPhase:null,paused:null,runDist:0,walkDist:0,bumps:0,stun:0,
+     walkAt:def.signal[0][0]==='WALK'?0:null,oncoming:(def.oncoming||[]).map(o=>({...o})),
+     cars:[],turn:null,npcs:[],spawnNext:0,spawnCycle:0};
+  for(const c of def.cars)R.cars.push(makeCar({...c,dir:c.lane<2?1:-1}));
+  if(def.turn!=null)R.turn={t:-def.turn,car:null};
+  for(const n of def.npcs){const e=el('circle',{cx:START-110,cy:PY+n.dy,r:20,fill:'#ffff75',stroke:'#111931','stroke-width':4,class:'npc'},gNpcs);R.npcs.push({...n,x:START-110,y:PY+n.dy,r:20,state:'curb',el:e});}
+  player.setAttribute('cx',START);player.setAttribute('cy',PY);
+  you.style.display=act===0||(act===1&&i===0)?'':'none';
+  $('h-card').hidden=true;$('h-controls').hidden=false;
+  $('h-prompt').hidden=true;$('h-coach-go').hidden=true;
+  $('hud').classList.toggle('no-keys',!R.practice);              // control buttons only in the practice
+  // the practice and the first crossing of each round open on a centred card and wait for →
+  $('h-hit').hidden=true;
+  const intro=R.practice||(i===0&&!retry),col=act===2?'var(--pink)':'var(--lime)';$('h-intro').hidden=!intro;
+  if(intro){R.state='intro';const t=$('h-intro-title');t.textContent=R.practice?'PRACTICE':'ROUND '+act;t.style.color=col;$('h-intro').style.borderColor=col;
+    $('h-intro-text').hidden=!(R.practice||act===2);$('h-intro-text').textContent=R.practice?'Press → to start.':'Class starts in 0:30.';$('h-intro-key').hidden=false;}
+  $('h-prog').hidden=R.practice;$('h-dots').hidden=act!==1;$('h-route').hidden=act!==2;$('h-clock-box').hidden=act!==2;
+  $('h-prog-text').textContent=`ROUND ${act} · CROSSING ${i+1} OF 3`;$('h-prog').classList.toggle('late',act===2);
+  $('h-dots').hidden=R.practice;$('h-route').hidden=true;
+  if(!R.practice)renderDots();if(act===2)renderClock();
+  keysUI();renderSignal();
+  show('play');fit();startLoop();
+}
+function setStreetSignal(phase){
+  const c=PH[phase];
+  for(const d of STREET_SIGS){d.setAttribute('fill',c);d.style.filter=`drop-shadow(0 0 8px ${c}) drop-shadow(0 0 16px ${c})`;d.classList.toggle('count',phase==='COUNT');}
+}
+function renderSignal(){
+  setStreetSignal(R.phase);
+  const s=$('h-signal');s.dataset.phase=R.phase;
+  $('h-phase').textContent=PHNAME[R.phase];
+  $('ic-walk').hidden=R.phase!=='WALK';$('ic-hand').hidden=R.phase==='WALK';
+  const show=R.phase!=='DONT'&&R.left<100;$('h-count').hidden=!show;
+  if(show)$('h-secs').textContent=Math.max(0,Math.ceil(R.left));
+}
+const markKind=r=>r.waited?'wait':r.a==='paused'?'paused':'went';
+function setA(e,r){e.dataset.a=markKind(r);e.style.setProperty('--c',PH[r.phase]);}
+function renderDots(){const d=$('h-dots'),rec=R.act===2?S.act2:S.act1;d.innerHTML='';for(let i=0;i<3;i++){const e=document.createElement('i');if(rec[i])e.className='done';else if(i===R.i)e.className='now';d.appendChild(e);}}
+function renderRoute(){const r=$('h-route');r.innerHTML='<i class="end"></i>';for(let i=0;i<3;i++){r.insertAdjacentHTML('beforeend','<s></s>');const e=document.createElement('i');const o=S.act2[i];if(o)setA(e,o);else if(R&&i===R.i)e.className='now';r.appendChild(e);}r.insertAdjacentHTML('beforeend','<s></s><i class="end studio"></i>');}
+function fmt(t){t=Math.max(0,Math.ceil(t));return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');}
+function renderClock(){$('h-clock').textContent=fmt(S.clock);}
+
+/* ---------- controls: tap → toggles walking, hold SHIFT runs, SPACE stops ---------- */
+const moving=()=>R.state==='walk'||R.state==='run';
+const onRoad=x=>x>R0-8&&x<R0+RW+8;
+function keysUI(){
+  if(!R)return;
+  $('k-walk').classList.toggle('lit',moving()&&R.keys.right);
+  $('k-run').classList.toggle('lit',R.state==='run');
+  for(const b of document.querySelectorAll('.key[data-k]'))b.classList.toggle('lit',moving()&&R.keys[b.dataset.k]);
+}
+const anyDir=()=>DIRS.some(d=>R.keys[d]);
+function stop(){if(!moving())return;R.state=R.px>START+4?'stopped':'curb';if(onRoad(R.px)&&R.paused==null)R.paused=R.px;}
+// k = right / left / up / down (arrows) or run (SHIFT). Hold any arrow to move, let go of all of them to stop; SHIFT only speeds up while an arrow is held.
+function input(k,down){
+  if(!R||S.screen!=='play'||R.state==='done')return;
+  if(R.state==='intro'){if(DIRS.includes(k)&&down)beginPractice();return;}
+  if(k==='run')R.shift=down;else R.keys[k]=down;
+  if(anyDir())R.state=R.shift?'run':'walk';else stop();
+  keysUI();
+}
+const releaseAll=()=>{for(const d of DIRS)input(d,false);input('run',false);};
+
+/* ---------- simulation ---------- */
+function tick(now){
+  const dt=Math.min(.1,(now-last)/1000);last=now;                 // real elapsed time
+  if(R&&S.screen==='play'&&R.state!=='done'&&R.state!=='intro'){
+    R.time+=dt;
+    const ph=phaseAt(R.def.signal,R.time);if(ph.p!==R.phase){R.phase=ph.p;SFX.signal(ph.p);if(ph.p==='WALK'&&R.walkAt==null)R.walkAt=R.time;}R.left=ph.left;renderSignal();
+    if(R.act===2){S.clock-=dt;renderClock();if(S.clock<=0&&!S.late){S.late=true;S.clock=0;renderClock();R.state='done';setTimeout(()=>fadeThen(result),400);}}
+    // player
+    if(R.stun>0)R.stun-=dt;                                       // a bump stops you for a moment
+    const dx=(R.keys.right?1:0)-(R.keys.left?1:0),dy=(R.keys.down?1:0)-(R.keys.up?1:0);
+    if(moving()&&R.stun<=0&&(dx||dy)){
+      const v=SPEED[R.state==='run'?'run':'walk']*(dx&&dy?Math.SQRT1_2:1);
+      const nx=Math.max(START,Math.min(END,R.px+dx*v*dt)),ny=Math.max(YMIN,Math.min(YMAX,R.py+dy*v*dt));
+      if(R.stepT==null&&nx>R0-8){R.stepT=R.time;R.stepPhase=R.phase;}
+      if(onRoad(R.px)){const d=Math.hypot(nx-R.px,ny-R.py);if(R.state==='run')R.runDist+=d;else R.walkDist+=d;}
+      R.px=nx;R.py=ny;
+      const l=R.path[R.path.length-1];if(Math.hypot(l[0]-nx,l[1]-ny)>6)R.path.push([nx,ny]);
+      if(R.px>=END){arrive();}
+    }
+    player.setAttribute('cx',R.px.toFixed(1));player.setAttribute('cy',R.py.toFixed(1));you.setAttribute('transform',`translate(${R.px.toFixed(1)} ${R.py.toFixed(1)})`);
+    drawTrail();
+    if(R.practice)practiceTick();
+    stepNpcs(dt);stepTraffic(dt);
+    if(R&&R.state!=='done')SFX.update(dt,{moving:moving()?R.state:null,count:R.phase==='COUNT'?R.left:null,clock:R.act===2?S.clock:null});
+  }
+  raf=requestAnimationFrame(tick);
+}
+function startLoop(){cancelAnimationFrame(raf);last=performance.now();raf=requestAnimationFrame(tick);}
+function stopLoop(){cancelAnimationFrame(raf);}
+
+let trail=null;
+function drawTrail(){
+  if(R.path.length>1){
+    if(!trail||!trail.isConnected)trail=el('polyline',{fill:'none',stroke:'#ffffff','stroke-opacity':.85,'stroke-width':6,'stroke-linecap':'round','stroke-linejoin':'round'},gLines);
+    trail.setAttribute('points',R.path.map(p=>p[0].toFixed(0)+','+p[1].toFixed(0)).join(' ')+' '+R.px.toFixed(0)+','+R.py.toFixed(0));
+  }
+}
+function spawnOncoming(y,speed){
+  const x=END+90,e=el('circle',{cx:x,cy:y,r:20,fill:'#ffff75',stroke:'#111931','stroke-width':4,class:'npc'},gNpcs);
+  const n={x,y,r:20,speed,dir:-1,state:'go',el:e};R.npcs.push(n);return n;
+}
+function stepNpcs(dt){
+  for(const o of R.oncoming)if(!o.done&&(typeof o.at==='number'?R.time>=o.at:R.walkAt!=null&&R.time>=R.walkAt+o.at.w)){o.done=true;spawnOncoming(o.y,o.speed);}
+  for(const n of R.npcs){
+    if(n.state==='curb'&&((typeof n.start==='number'&&R.time>=n.start)||(n.start==='WALK'&&R.phase==='WALK')))n.state='go';
+    if(n.state==='go'){
+      n.x+=n.speed*dt*(n.dir||1);
+      if(n.dir<0){
+        // once on your side of the road (or after a bump) they step around you
+        if(n.bumped||n.x<R0+20){const off=n.y-R.py;if(Math.abs(off)<70&&Math.abs(n.x-R.px)<120)n.y=Math.max(YMIN-60,Math.min(YMAX+60,n.y+Math.sign(off||1)*220*dt));}
+        else if(R.state!=='done'&&R.state!=='intro'&&Math.hypot(n.x-R.px,n.y-R.py)<n.r+27-4){n.bumped=true;bump(n);}
+      }
+      if(n.dir<0?n.x<=START-150:n.x>=END+60){n.state='gone';n.el.style.opacity=0;}
+    }
+    n.el.setAttribute('cx',n.x.toFixed(1));n.el.setAttribute('cy',n.y.toFixed(1));
+  }
+}
+function bump(n){
+  R.bumps++;R.stun=0.6;R.px=Math.max(START,R.px-40);SFX.bump();
+  el('circle',{cx:R.px,cy:R.py,r:36,class:'honk'},gFx);
+  player.setAttribute('stroke','#ffffff');setTimeout(()=>{if(R)player.setAttribute('stroke','#ea3380');},400);
+}
+// people the drivers can see on (or about to enter) the road
+function walkers(){
+  const w=[];
+  if(R.px>R0-40&&R.px<R0+RW+20&&R.state!=='done')w.push({x:R.px,y:R.py,r:27,moving:moving(),dir:R.keys.left&&!R.keys.right?-1:1,isPlayer:true});
+  for(const n of R.npcs)if(n.state==='go'&&n.x>R0-40&&n.x<R0+RW+20)w.push({x:n.x,y:n.y,r:n.r,moving:true,dir:n.dir||1});
+  return w;
+}
+function spawn(lane,vmax){const dir=lane<2?1:-1;R.cars.push(makeCar({lane,dir,vmax,y:dir>0?vb.y-140:vb.y+vb.h+140}));}
+function stepTraffic(dt){
+  const def=R.def,green=R.phase==='DONT';            // cars get green while pedestrians see DON'T WALK
+  if(def.spawn){const cyc=Math.floor(R.time/def.spawn.every),tt=R.time%def.spawn.every;
+    if(cyc!==R.spawnCycle){R.spawnCycle=cyc;R.spawnNext=0;}
+    while(R.spawnNext<def.spawn.list.length&&tt>=def.spawn.list[R.spawnNext][0]){const [,lane,v]=def.spawn.list[R.spawnNext++];spawn(lane,v);}}
+  const ws=walkers();
+  // turning car
+  if(R.turn){const T=R.turn;
+    if(T.t<0)T.t+=dt;                                       // waits off-screen until its start time
+    else if(!T.car){T.car=makeCar({lane:1,dir:1,vmax:180,blink:true,y:TURN[0][1]});T.car.x=TURN[0][0];T.t=0;}
+    else if(T.t<1){const blocked=ws.some(w=>w.x>560&&w.x<1060)&&T.t>0.72;
+      if(blocked){if(ws.some(w=>w.isPlayer&&w.x>560&&w.x<1060)&&T.t<0.8)alarm(T.car,ws.find(w=>w.isPlayer));T.car.g.classList.add('braking');}
+      else{T.t=Math.min(1,T.t+dt/2.4);T.car.g.classList.remove('braking');}
+      const p=bez(T.t);T.car.x=p.x;T.car.y=p.y;T.car.ang=Math.atan2(p.dy,p.dx)*180/Math.PI-90;place(T.car);SFX.carUpdate(T.car,R.px);
+      if(T.t>=1){const c=T.car;c.x=null;c.ang=null;c.v=150;c.ignoreRed=true;R.cars.push(c);R.turn=null;}}
+  }
+  // straight traffic, per lane in travel order.
+  // Cars always stop for the red line, the car ahead and other pedestrians. For YOU they only brake as hard
+  // as a real car can: step out too close in front of a moving car and it can't stop in time.
+  const AMAX=900;
+  for(const c of R.cars){
+    const d=c.dir,s=c.y*d,front=s+CARH;
+    let limit=Infinity,why=null,pEdge=Infinity,pw=null;
+    if(!green&&!c.ignoreRed){const line=d>0?BY-48:-(BY+BH+48);if(front<=line+2)limit=line;}
+    for(const o of R.cars)if(o!==c&&o.lane===c.lane&&(o.x==null)){const os=o.y*d;if(os>s){const rear=os-CARH-18;if(rear<limit){limit=rear;why=null;}}}
+    const lx=laneX(c.lane);
+    for(const w of ws){
+      const inLane=Math.abs(w.x-lx)<27.5+w.r+22||(w.moving&&w.dir*(lx-w.x)>0&&Math.abs(lx-w.x)<150);   // about to walk into this lane
+      const ws_=w.y*d,edge=ws_-w.r-12;
+      if(!inLane||edge<=front-6)continue;
+      if(w.isPlayer){if(edge<pEdge){pEdge=edge;pw=w;}}
+      else if(edge<limit){limit=edge;why=w;}
+    }
+    const target=Math.min(limit,pEdge),toPlayer=pEdge<limit,gap=target-front;
+    let decel=0;
+    if(gap<=0.5){decel=toPlayer?AMAX:Infinity;c.v=toPlayer?Math.max(0,c.v-AMAX*dt):0;}
+    else{const need=c.v*c.v/(2*gap);
+      if(need>230){decel=Math.min(need*1.05,toPlayer?AMAX:1600);c.v=Math.max(0,c.v-decel*dt);if(need>700&&(toPlayer?pw:why))alarm(c,toPlayer?pw:why);}
+      else c.v=Math.min(c.vmax,c.v+240*dt);}
+    let ns=s+c.v*dt;if(ns+CARH>limit){ns=limit-CARH;c.v=Math.min(c.v,0);}
+    c.y=ns*d;c.g.classList.toggle('braking',decel>0||c.v<5);SFX.carUpdate(c,R.px);
+    if(why==null&&pw==null&&gap>300)c.alarm=false;
+    place(c);
+    // a real hit: the moving car's body touches your dot
+    if(c.v>30&&R.state!=='done'&&Math.abs(R.px-lx)<27.5+27-4&&Math.abs(c.y-R.py)<CARH+27-4){hit(c);return;}
+  }
+
+  // drop cars that have left the view
+  R.cars=R.cars.filter(c=>{const out=c.dir>0?c.y>vb.y+vb.h+200:c.y<vb.y-200;if(out){c.g.remove();SFX.carRemove(c);}return !out;});
+}
+
+/* ---------- getting hit: twice and it's game over ---------- */
+function hit(c){
+  R.state='done';S.hits=(S.hits||0)+1;keysUI();SFX.nearMiss();
+  el('circle',{cx:R.px,cy:R.py,r:40,class:'honk'},gFx);
+  player.setAttribute('stroke','#ffffff');svg.classList.remove('shake');void svg.getBoundingClientRect();svg.classList.add('shake');
+  setTimeout(()=>{svg.classList.remove('shake');player.setAttribute('stroke','#ea3380');showHit();},800);
+}
+function showHit(){
+  S.screen='hit';$('h-controls').hidden=true;$('h-prompt').hidden=true;
+  const over=S.hits>=2;
+  $('hit-title').textContent=over?'GAME OVER.':'YOU GOT HIT.';
+  $('hit-text').textContent=over?'Hit twice. Start again.':'Get hit twice and it’s game over.';
+  $('hit-btn').textContent=over?'RESTART →':'TRY AGAIN →';
+  $('h-hit').hidden=false;
+}
+
+/* ---------- leaving mid-game: the street freezes (clock too) until KEEP PLAYING or EXIT ---------- */
+let quitFrom=null;
+function openQuit(){
+  if(quitFrom||!R||!['play','card','hit','practice-done'].includes(S.screen)||(S.screen==='play'&&R.state==='done'))return;   // not during a hit or arrival hand-off
+  if(moving())R.state=R.px>START+4?'stopped':'curb';R.shift=false;for(const d of DIRS)R.keys[d]=false;keysUI();   // stand still (not counted as a pause)
+  quitFrom=S.screen;S.screen='quit';$('h-quit').hidden=false;
+}
+function closeQuit(){if(!quitFrom)return;S.screen=quitFrom;quitFrom=null;$('h-quit').hidden=true;last=performance.now();}
+function exitGame(){quitFrom=null;$('h-quit').hidden=true;R=null;resetRun();fadeThen(()=>show('landing'));}
+
+/* ---------- practice: about 15 seconds, nothing recorded ---------- */
+function coach(t){const p=$('h-prompt');p.innerHTML=t;p.hidden=!t;}
+function beginPractice(){$('h-intro').hidden=true;$('h-controls').hidden=false;R.state='curb';keysUI();last=performance.now();if(R.practice)coach('Hold → to walk.');}
+function practiceTick(){
+  if(R.step==='walk'&&moving()&&!$('h-prompt').hidden&&R.px<R0+RW*0.25)coach('');
+  if(R.step==='walk'&&R.px>R0+RW*0.25){R.step='stop';coach('Let go of → to stop and look.');}
+  else if(R.step==='stop'&&R.state==='stopped'){R.step='dodge';R.dodger=spawnOncoming(R.py,240);coach('Someone’s coming. Use ↑ or ↓ to step&nbsp;aside.');}
+  else if(R.step==='dodge'&&R.dodger.x<R.px-60){R.step='run';coach('Now hold → + SHIFT to run to FINISH.');}
+}
+
+/* ---------- reaching FINISH ---------- */
+function arrive(){
+  R.state='done';keysUI();
+  if(trail)trail.remove();
+  const phase=R.stepPhase||R.phase;
+  const a=R.paused!=null?'paused':R.runDist>RW*0.4?'ran':'walked';
+  const waited=phase==='WALK'&&R.def.signal[0][0]!=='WALK';
+  const rec={phase,a,waited,wait:R.stepT||0,bumps:R.bumps};
+  drawMark(gLines,START,END+16,PY,phase,a,{pause:R.paused,waited,startDot:true});
+  if(R.practice){
+    coach('');$('h-intro-title').textContent='NICE.';$('h-intro-text').hidden=true;
+    $('h-intro-key').hidden=true;$('h-intro').hidden=false;$('h-controls').hidden=true;$('h-coach-go').hidden=false;S.screen='practice-done';return;
+  }
+  if(R.act===1){S.act1[R.i]=rec;renderDots();setTimeout(()=>showCard(rec),450);return;}
+  S.act2[R.i]=rec;renderDots();setTimeout(()=>showCard(rec),450);
+}
+// between crossings: only say which crossing you just finished
+function showCard(r){
+  S.screen='card';$('h-controls').hidden=true;
+  const last=R.i>=2;
+  const n=R.act,col=n===2?'var(--pink)':'var(--lime)';
+  $('c-eyebrow').textContent='ROUND '+n;
+  $('c-head').textContent=last?`ROUND ${n} DONE.`:`CROSSING ${R.i+1} DONE.`;$('c-head').style.color=col;$('h-card').style.borderColor=col;
+  $('c-next').textContent=last?(n===2?'SEE RESULTS →':'ON TO ROUND 2 →'):'NEXT CROSSING →';
+  $('h-card').hidden=false;
+}
+function nextRound(){
+  if(R.act===1){if(R.i<2)fadeThen(()=>startRound(1,R.i+1));else{S.clock=ACT2_CLOCK;S.late=false;S.act2=[];fadeThen(()=>startRound(2,0));}}
+  else{if(S.late)return;if(R.i<2)fadeThen(()=>startRound(2,R.i+1));else fadeThen(result);}
+}
+
+/* ---------- result: made it to class or not ---------- */
+const TITLE={WALK:'Walk',COUNT:'Countdown',DONT:'Don’t Walk'};
+function result(){
+  R=null;stopLoop();
+  const made=!S.late;
+  $('r-orb').className='orb '+(made?'pass':'fail');
+  $('r-type').textContent=made?'YOU MADE IT.':'YOU WERE LATE.';$('r-type').style.color=made?'var(--lime)':'var(--pink)';
+  $('r-verdict').textContent=made?`You got to class with ${fmt(S.clock)} to\u00a0spare.`:'The clock ran out before you reached\u00a0class.';
+  renderFoot();
+  show('result');
+  saveResult();
+}
+function realData(){
+  const lg=$('rv-legend');lg.innerHTML='<span style="color:var(--muted)">COLOUR = SIGNAL WHEN THEY STEPPED OFF</span>';
+  for(const p of ['WALK','COUNT','DONT'])lg.insertAdjacentHTML('beforeend',`<span><i style="background:${PH[p]}"></i>${PHNAME[p]}</span>`);
+  lg.insertAdjacentHTML('beforeend','<span style="color:var(--muted)">MARK =</span>');
+  for(const [r,l] of [[{phase:'WALK',a:'walked'},'CROSSED STRAIGHT OVER'],[{phase:'WALK',a:'paused'},'STOPPED PARTWAY']]){const sp=document.createElement('span');const m=markSVG(r);m.style.cssText='width:44px;height:14px';sp.appendChild(m);sp.insertAdjacentText('beforeend',l);lg.appendChild(sp);}
+  const s=document.createElementNS(NS,'svg');s.setAttribute('viewBox','0 0 432 300');s.setAttribute('role','img');s.setAttribute('aria-label','Twelve recorded crossings drawn as lines across the crosswalk');
+  el('rect',{x:0,y:0,width:432,height:300,fill:'#213d52'},s);el('rect',{x:84,y:0,width:264,height:300,fill:'#00017a'},s);
+  for(let i=0;i<8;i++)el('rect',{x:90+i*32.5,y:50,width:20,height:200,fill:'#75fbfd','fill-opacity':.22},s);
+  OBS.forEach((o,i)=>{const y=62+i*16;drawMark(s,o.d>0?30:402,o.d>0?402:30,y,o.p,o.a,{k:.45});});
+  $('p-obs').replaceChildren(s);
+  const dw=count(o=>o.p==='DONT'),dwp=count(o=>o.p==='DONT'&&o.a==='paused'),cd=count(o=>o.p==='COUNT'),cdp=count(o=>o.p==='COUNT'&&o.a==='paused'),wk=count(o=>o.p==='WALK'),wkp=count(o=>o.p==='WALK'&&o.a==='paused');
+  $('obs-text').innerHTML=`We recorded <b>12 people crossing</b> at the 15 Westminster Street crosswalk${OBS_WHEN?' '+OBS_WHEN:' <span class="todo">[session date and time to be added]</span>'}. `+
+    `<b>${dw}</b> started on DON’T WALK (${dwp} of them stopped partway), <b>${cd}</b> started on the COUNTDOWN (${cdp} stopped), and <b>${wk}</b> started on WALK (${wkp} stopped).`;
+  $('obs-note').textContent='People who waited at the curb were not counted in this sample.';
+  show('data');
+}
+/* ---------- everyone's results: kept in the group's Google Sheet through its Apps Script web app ----------
+   GET ?section=game lists every player's row; POST {section,id,data} saves one row per player (a replay replaces it).
+   No login needed, so it works on the public site, the claude.ai link and the standalone file alike. */
+const RESULTS_URL='https://script.google.com/macros/s/AKfycbzFCEnsNlBP_1-BfGGPJGAlYpDSDRCL_7OG0-JPMaeeIUDuLjDb2zk1zXEKDsfKaog/exec';
+// a random id per browser (not a name), so playing again replaces your own row
+function playerId(){
+  let id=null;try{id=localStorage.getItem('ntg-player');}catch(e){}
+  if(!/^[A-Za-z0-9_-]{8,64}$/.test(id||'')){
+    id='p'+Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>b.toString(16).padStart(2,'0')).join('');
+    try{localStorage.setItem('ntg-player',id);}catch(e){}
+  }
+  return id;
+}
+const ALL={uid:playerId(),rows:null};
+const pct=(a,n)=>n?Math.round(a/n*100):0;
+function evStatus(t){$('ev-status').hidden=!t;$('ev-status').textContent=t||'';}
+function renderFoot(){
+  const n=ALL.rows?ALL.rows.length:0,ok=n?ALL.rows.filter(r=>r.made).length:0;
+  $('r-foot').textContent=n?`${ok} OF ${n} PLAYERS MADE IT TO CLASS ON TIME.`:`${count(o=>o.p==='DONT')} OF THE 12 PEOPLE WE RECORDED STARTED ON DON’T WALK.`;
+}
+async function loadAll(){
+  if(!ALL.rows)evStatus('Loading everyone’s results…');
+  const ctl=new AbortController(),slow=setTimeout(()=>ctl.abort(),10000);
+  try{
+    const d=await fetch(RESULTS_URL+'?section=game',{signal:ctl.signal}).then(r=>r.json());
+    ALL.rows=(d.results||[]).filter(r=>typeof r.made==='boolean');evStatus('');
+  }catch(e){if(!ALL.rows)evStatus('Couldn’t load everyone’s results. Check your connection and try again.');}
+  clearTimeout(slow);
+  if(S&&(S.screen==='all'||S.screen==='result'))renderAll();
+}
+async function saveResult(){
+  const s=$('r-saved');s.classList.remove('warn');
+  const phases=list=>[0,1,2].map(i=>list[i]?list[i].phase:null);
+  const data={made:!S.late,left:S.late?0:Math.max(1,Math.ceil(S.clock)),r1:phases(S.act1),r2:phases(S.act2)};
+  s.textContent='Saving your result…';
+  try{
+    const r=await fetch(RESULTS_URL,{method:'POST',body:JSON.stringify({section:'game',id:ALL.uid,data})}).then(r=>r.json());
+    if(!r||!r.ok)throw r;
+    s.textContent='Added to everyone’s results.';
+  }catch(e){s.classList.add('warn');s.textContent='Your result couldn’t be saved. Check your connection.';}
+  loadAll();
+}
+function renderAll(){
+  const rows=ALL.rows||[],n=rows.length,me=rows.find(r=>r.id===ALL.uid);
+  $('ev-count').textContent=n;$('ev-count-lbl').textContent=n===1?'person so far':'people so far';
+  renderFoot();
+  const youTag=()=>'<span class="ev-you">YOU</span>';
+  // made it vs late
+  const ok=rows.filter(r=>r.made).length;
+  $('ev-split').innerHTML=[[true,'MADE IT','var(--lime)',ok],[false,'LATE','var(--pink)',n-ok]].map(([m,l,c,k])=>
+    `<div class="ev-row"><b style="color:${c}">${l}${me&&me.made===m?youTag():''}</b><span>${k} · ${pct(k,n)}%</span><div class="ev-bar"><i style="width:${pct(k,n)}%;background:${c}"></i></div></div>`).join('');
+  // time to spare: one dot per person, stacked by second; late people in their own column
+  const tw=$('ev-time');
+  if(!n){tw.innerHTML='<div class="ev-empty">No results yet. Play to add the first&nbsp;dot.</div>';}
+  else{
+    const Wd=520,Hd=200,base=158,x=v=>v<0?30:80+v/ACT2_CLOCK*420;
+    const b={};rows.forEach(r=>{const k=r.made?Math.min(ACT2_CLOCK,Math.max(1,Math.round(r.left))):-1;(b[k]=b[k]||[]).push(r);});
+    const most=Math.max(...Object.values(b).map(l=>l.length)),sp=Math.min(14,(base-14)/most),rad=Math.max(2,Math.min(6,sp/2-1));
+    const g=document.createElementNS(NS,'svg');g.setAttribute('viewBox',`0 0 ${Wd} ${Hd}`);g.setAttribute('role','img');g.setAttribute('aria-label','Dot chart of how much time each player had left');
+    el('line',{x1:60,y1:base+10,x2:505,y2:base+10,stroke:'#8a93b2','stroke-width':1},g);
+    for(const [v,t] of [[-1,'LATE'],[0,'0:00'],[15,'0:15'],[30,'0:30']]){const tx=el('text',{x:x(v),y:base+32,fill:v<0?'#ea3380':'#8a93b2','font-size':13,'text-anchor':'middle','font-family':'DM Mono, monospace'},g);tx.textContent=t;}
+    for(const [k,list] of Object.entries(b)){const cx=x(+k),c=+k<0?'#ea3380':'#bafd50';
+      list.forEach((r,i)=>{const cy=base-i*sp;el('circle',{cx,cy,r:rad,fill:c},g);
+        if(r.id===ALL.uid){el('circle',{cx,cy,r:rad+3,fill:'none',stroke:'#fff','stroke-width':2},g);const t=el('text',{x:cx+rad+6,y:cy+4,fill:'#fff','font-size':12,'font-family':'DM Mono, monospace'},g);t.textContent='YOU';}});}
+    tw.replaceChildren(g);
+  }
+  // crossing by crossing: signal people stepped off on, round 1 vs round 2
+  $('ev-legend').innerHTML=['WALK','COUNT','DONT'].map(p=>`<span><i style="background:${PH[p]}"></i>${PHNAME[p]}</span>`).join('')+'<span><i style="background:#8a93b2"></i>DIDN’T GET THERE</span>';
+  const seg=(list)=>{const t=list.length;if(!t)return '<div class="ev-seg"></div>';
+    return '<div class="ev-seg">'+[['WALK',PH.WALK],['COUNT',PH.COUNT],['DONT',PH.DONT],[null,'#8a93b2']].map(([p,c])=>{const k=list.filter(v=>(PH[v]?v:null)===p).length;return k?`<span style="flex:${k};background:${c}">${pct(k,t)>=12?pct(k,t)+'%':''}</span>`:'';}).join('')+'</div>';};
+  $('ev-x').innerHTML=CROSSINGS.map((c,i)=>{const r1=rows.map(r=>(r.r1||[])[i]),r2=rows.map(r=>(r.r2||[])[i]);
+    return `<div><h4>0${i+1}<small>Light shows ${PHNAME[c.signal[0][0]]} when you arrive</small></h4><div class="ev-split"><span>NO RUSH</span>${seg(r1)}<span>LATE</span>${seg(r2)}</div></div>`;}).join('');
+}
+function openAll(){renderAll();show('all');loadAll();}
+
+/* ---------- input ---------- */
+let pressing=false;
+function pressPush(btn,then){if(pressing)return;pressing=true;SFX.init();SFX.beep();btn.classList.add('pressed');setTimeout(()=>{btn.classList.remove('pressed');pressing=false;then();},450);}
+function advance(){
+  switch(S.screen){
+    case 'landing':pressPush($('b-start'),()=>fadeThen(()=>show('overview')));break;
+    case 'overview':pressPush($('b-overview'),()=>fadeThen(()=>show('how')));break;
+    case 'how':pressPush($('b-how'),()=>fadeThen(()=>startRound(0,0)));break;
+    case 'practice-done':pressPush($('h-coach-go'),()=>{S.screen='play';fadeThen(()=>startRound(1,0));});break;
+    case 'card':pressPush($('c-next'),nextRound);break;
+    case 'hit':pressPush($('hit-btn'),()=>{$('h-hit').hidden=true;if(S.hits>=2){resetRun();fadeThen(()=>show('landing'));}else{S.screen='play';const a=R.act,i=R.i;fadeThen(()=>startRound(a,i,true));}});break;
+    case 'result':pressPush($('b-all'),()=>fadeThen(openAll));break;
+    case 'all':pressPush($('b-data'),()=>fadeThen(realData));break;
+    case 'data':pressPush($('b-again'),retake);break;
+  }
+}
+addEventListener('keydown',e=>{
+  SFX.init();
+  if((e.key==='m'||e.key==='M')&&!e.metaKey&&!e.ctrlKey){SFX.toggle();return;}
+  if(e.key==='Escape'){if(S.screen==='quit')closeQuit();else openQuit();return;}
+  const dir=ARROWS[e.key],space=e.key===' '||e.code==='Space',shift=e.key==='Shift';
+  if(dir==='right'||((dir||space||shift)&&S.screen==='play'))e.preventDefault();
+  if(e.repeat)return;
+  if(dir){if(S.screen==='play')input(dir,true);else if(dir==='right')advance();}
+  else if(shift&&S.screen==='play')input('run',true);
+  else if(e.key==='Enter'&&S.screen==='landing'){e.preventDefault();advance();}
+});
+addEventListener('keyup',e=>{if(e.key==='Shift')input('run',false);else if(ARROWS[e.key])input(ARROWS[e.key],false);});
+addEventListener('blur',releaseAll);
+function bindKey(b,k){
+  b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture?.(e.pointerId);input(k,true);});
+  for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>input(k,false));
+  b.addEventListener('contextmenu',e=>e.preventDefault());
+}
+bindKey($('k-walk'),'right');bindKey($('k-run'),'run');
+for(const b of document.querySelectorAll('.key[data-k]'))bindKey(b,b.dataset.k);
+for(const id of ['b-start','b-overview','b-how','b-all','b-data','c-next','h-coach-go','hit-btn'])$(id).addEventListener('click',advance);
+$('h-intro').addEventListener('click',e=>{if(R&&S.screen==='play'&&R.state==='intro'&&e.target.id!=='h-coach-go')beginPractice();});
+function retake(){resetRun();fadeThen(()=>show('landing'));}
+$('h-exit').addEventListener('click',()=>{SFX.init();SFX.beep();openQuit();});
+$('q-stay').addEventListener('click',()=>pressPush($('q-stay'),closeQuit));
+$('q-exit').addEventListener('click',()=>pressPush($('q-exit'),exitGame));
+$('b-retake').addEventListener('click',()=>pressPush($('b-retake'),retake));
+$('b-again').addEventListener('click',advance);
+
+addEventListener('pointerdown',()=>SFX.init());
+$('snd').addEventListener('click',()=>{SFX.init();SFX.toggle();});
+function start(){resetRun();fit();SFX.renderBtn();show('landing');}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+
+</body>
+</html>

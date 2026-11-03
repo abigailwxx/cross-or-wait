@@ -28,6 +28,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--white);font-fami
   font:500 12px var(--ui);letter-spacing:.1em;color:var(--muted);background:color-mix(in srgb,var(--bg) 80%,transparent);border:1px solid var(--surface);border-radius:20px;padding:8px 14px;cursor:pointer}
 .toggle:hover{color:var(--white);border-color:var(--muted)}
 /* while the browser keeps the video muted, the sound button glows so people know there is sound */
+.tap-play{position:fixed;z-index:3;left:50%;top:calc(50% + var(--ntg-nav-h,0px)/2);transform:translate(-50%,-50%);width:92px;height:92px;border-radius:50%;border:2px solid var(--lime);background:color-mix(in srgb,var(--bg) 70%,transparent);color:var(--lime);display:grid;place-items:center;cursor:pointer;box-shadow:0 0 24px rgba(186,253,80,.4)}
+.tap-play[hidden]{display:none}
 .toggle.ask{color:var(--lime);border-color:var(--lime);box-shadow:0 0 14px rgba(186,253,80,.35)}
 /* next section: an arrow to the right of the video; a pill under it on narrow screens */
 .next{position:fixed;z-index:2;right:max(24px,env(safe-area-inset-right,0px));top:calc(50% + var(--ntg-nav-h,0px)/2);transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--lime);text-decoration:none;font:500 12px var(--ui);letter-spacing:.12em}
@@ -47,10 +49,11 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--white);font-fami
 <script src="../shared/nav.js?v=2" data-active="motion"></script>
 <div class="brand">NOBODY TRUSTS GREEN</div>
 <div class="stage">
-  <video id="motion" src="crossing-different-rhythms.mp4" poster="poster.jpg" muted loop playsinline preload="auto"
+  <video id="motion" src="crossing-different-rhythms.mp4" poster="poster.jpg" autoplay muted loop playsinline webkit-playsinline preload="auto"
          aria-label="Animation: pedestrians crossing in two periods, a crowded class change and a quiet period"></video>
 </div>
 <a class="next" href="../index.html#quiz"><span class="arrow" aria-hidden="true">→</span><small>NEXT</small>QUIZ</a>
+<button class="tap-play" id="tapPlay" type="button" hidden aria-label="Play the video"><svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M8 5l12 7-12 7z" fill="currentColor"/></svg></button>
 <div class="controls">
   <button class="toggle" id="sound" type="button">SOUND OFF</button>
   <button class="toggle" id="toggle" type="button">PAUSE</button>
@@ -70,14 +73,20 @@ const label=()=>{v.paused?set(b,'play','PLAY'):set(b,'pause','PAUSE');};
 const soundLabel=()=>{v.muted?set(snd,'off','SOUND OFF'):set(snd,'on','SOUND ON');snd.classList.toggle('ask',v.muted);};
 // The video has a sound track. Browsers only autoplay muted video unless the visitor has interacted,
 // so try with sound first, fall back to muted, and turn the sound on at the first click or tap anywhere.
+// Plays as soon as the page opens. Computers try with sound first. Phones start muted (that is the only way
+// iOS/Android let a video play by itself; the SOUND button glows and the first tap turns sound on).
+// If the phone still refuses (iPhone Low Power Mode), a big play button appears on the video.
+const tap=document.getElementById('tapPlay');
 async function start(){
   v.currentTime=0;                                   // always from the first frame
-  v.muted=false;
-  try{await v.play();}
-  catch(e){v.muted=true;try{await v.play();}catch(e2){}}
+  if(!matchMedia('(hover:none)').matches){v.muted=false;try{await v.play();soundLabel();return;}catch(e){}}
+  v.muted=true;
+  try{await v.play();}catch(e){tap.hidden=false;}
   soundLabel();
 }
-if(!matchMedia('(prefers-reduced-motion: reduce)').matches)start();else{v.muted=false;soundLabel();}
+v.addEventListener('playing',()=>{tap.hidden=true;});
+tap.addEventListener('click',e=>{e.stopPropagation();v.muted=false;v.play().catch(()=>{v.muted=true;v.play();});});
+start();
 v.addEventListener('play',label);v.addEventListener('pause',label);v.addEventListener('volumechange',soundLabel);label();
 b.addEventListener('click',e=>{e.stopPropagation();v.paused?v.play():v.pause();});
 snd.addEventListener('click',e=>{e.stopPropagation();v.muted=!v.muted;if(!v.muted&&v.paused)v.play();});
@@ -85,6 +94,7 @@ snd.addEventListener('click',e=>{e.stopPropagation();v.muted=!v.muted;if(!v.mute
 const nx=document.querySelector('.next');
 const ctl=document.querySelector('.controls');
 function placeNext(){
+  {const r=v.getBoundingClientRect();tap.style.left=(r.left+r.width/2)+'px';tap.style.top=(r.top+r.height/2)+'px';}   // play button on the middle of the video
   if(innerWidth<=900){                               // sound / pause sit at the bottom; NEXT in the middle of the space between them and the video
     const r=v.getBoundingClientRect(),c=ctl.getBoundingClientRect();nx.style.right='';
     nx.style.top=Math.max(r.bottom+16,(r.bottom+c.top-nx.offsetHeight)/2)+'px';return;}

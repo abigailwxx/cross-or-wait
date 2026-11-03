@@ -43,6 +43,11 @@ h2{font-size:clamp(28px,4.4vw,52px);color:var(--white)}
 .lamps{display:flex;gap:16px}
 .lamps i{width:14px;height:14px;border-radius:50%;background:var(--card)}
 .lamps i.on{background:var(--lime);box-shadow:0 0 10px color-mix(in srgb,var(--lime) 60%,transparent)}
+/* hint at the bottom centre of the question screen (from question 2 on) */
+.back-hint{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:max-content;max-width:calc(100vw - 32px);margin:0;text-align:center;font-size:13px;letter-spacing:.06em;color:var(--dim)}
+.back-hint::before{content:'';display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--lime);box-shadow:0 0 8px var(--lime);margin-right:10px;vertical-align:1px}
+.touch-word{display:none}
+@media (hover:none){.touch-word{display:inline}.mouse-word{display:none}}
 .lamps button{all:unset;box-sizing:border-box;width:14px;height:14px;border-radius:50%;background:var(--lime);box-shadow:0 0 10px color-mix(in srgb,var(--lime) 60%,transparent);cursor:pointer;transition:transform .15s ease,box-shadow .15s ease;position:relative}
 .lamps button::before{content:"";position:absolute;inset:-10px}  /* bigger tap target */
 .lamps button:hover,.lamps button:focus-visible{transform:scale(1.5);box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--lime),0 0 16px var(--lime)}
@@ -247,6 +252,7 @@ svg.focus .dust,svg.focus .web{opacity:.05}
       <button class="push" id="optB" data-own-sound type="button"><span class="ring"></span><span class="face"></span></button>
     </div>
     <p class="hint" id="qNum"></p>
+    <p class="back-hint" id="backHint" hidden><span class="mouse-word">Click</span><span class="touch-word">Tap</span> a green dot above to go&nbsp;back.</p>
   </section>
 
   <section class="screen" id="reveal" hidden>
@@ -360,7 +366,7 @@ function renderQuestion(){const q=QUESTIONS[step];lamps($("lamps"),step);$("qTex
   $("optA").style.setProperty("--accent","var(--white)");
   $("optB").style.setProperty("--accent",q.axis==="go"?"var(--pink)":"var(--cyan)");
   $("optA").setAttribute("aria-label",q.a.replace("\n"," "));$("optB").setAttribute("aria-label",q.b.replace("\n"," "));
-  $("qNum").textContent=`0${step+1} / 06`;}
+  $("qNum").textContent=`0${step+1} / 06`;$("backHint").hidden=step===0;}
 function choose(pick){answers[step]=pick;step++;if(step<6)renderQuestion();else renderReveal();}
 
 function scores(ans){let road=0,go=0;ans.forEach((p,i)=>{if(p==="B"){QUESTIONS[i].axis==="go"?go++:road++;}});return{road,go};}
